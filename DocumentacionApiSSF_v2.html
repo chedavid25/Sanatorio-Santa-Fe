@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EstadisticasApi — Documentación Técnica v1.0.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f1117;
+      --surface:    #161b27;
+      --surface2:   #1e2535;
+      --surface3:   #252d40;
+      --border:     rgba(255,255,255,0.07);
+      --border-md:  rgba(255,255,255,0.13);
+      --text:       #e2e8f0;
+      --text-muted: #8892a4;
+      --text-faint: #4a5568;
+      --accent:     #6366f1;
+      --accent-glow:rgba(99,102,241,0.15);
+      --green:      #10b981;
+      --green-bg:   rgba(16,185,129,0.1);
+      --amber:      #f59e0b;
+      --amber-bg:   rgba(245,158,11,0.1);
+      --red:        #ef4444;
+      --red-bg:     rgba(239,68,68,0.1);
+      --blue:       #3b82f6;
+      --blue-bg:    rgba(59,130,246,0.1);
+      --font-sans:  'Syne', system-ui, sans-serif;
+      --font-mono:  'IBM Plex Mono', monospace;
+      --sidebar-w:  260px;
+      --radius:     10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ========== SIDEBAR ========== */
+    .sidebar {
+      width: var(--sidebar-w);
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      background: var(--surface);
+      border-right: 0.5px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 2px; }
+
+    .sidebar-header {
+      padding: 1.5rem 1.25rem 1.25rem;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: .75rem;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .logo-text { font-size: 14px; font-weight: 700; line-height: 1.2; }
+    .logo-sub  { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .version-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--green);
+      background: var(--green-bg);
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 0.5px solid rgba(16,185,129,0.2);
+    }
+    .version-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+    .sidebar-nav { padding: .75rem .75rem; flex: 1; }
+
+    .nav-group { margin-bottom: 1.25rem; }
+
+    .nav-group-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-faint);
+      padding: .4rem .5rem;
+      margin-bottom: 2px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: .45rem .75rem;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all .15s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      text-decoration: none;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: var(--accent-glow); color: var(--accent); border: 0.5px solid rgba(99,102,241,0.2); }
+
+    .nav-method {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--green-bg);
+      color: var(--green);
+      flex-shrink: 0;
+    }
+
+    /* ========== MAIN ========== */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 2.5rem 2.5rem 5rem;
+      max-width: 860px;
+    }
+
+    /* ========== SECTIONS ========== */
+    .doc-section { display: none; }
+    .doc-section.visible { display: block; }
+
+    /* ========== HERO ========== */
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      border: 0.5px solid var(--border-md);
+      border-radius: 16px;
+      padding: 2rem 2rem 1.75rem;
+      margin-bottom: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--accent);
+      background: var(--accent-glow);
+      border: 0.5px solid rgba(99,102,241,0.25);
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: .875rem;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: .25rem;
+    }
+
+    .hero-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .hero-stat {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: .75rem 1rem;
+    }
+    .hero-stat-label { font-size: 10px; color: var(--text-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+    .hero-stat-value { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: var(--text); }
+
+    /* ========== SECTION HEADER ========== */
+    .section-hdr {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .section-hdr h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .section-hdr p  { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ========== CARDS ========== */
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+    }
+    .card + .card { margin-top: .75rem; }
+
+    /* ========== INFO TABLE ========== */
+    .info-table { width: 100%; border-collapse: collapse; }
+    .info-table tr { border-bottom: 0.5px solid var(--border); }
+    .info-table tr:last-child { border-bottom: none; }
+    .info-table td { padding: .75rem 0; font-size: 13px; vertical-align: top; }
+    .info-table td:first-child { font-weight: 600; color: var(--text-muted); width: 160px; font-size: 12px; }
+    .info-table td:last-child  { font-family: var(--font-mono); font-size: 12px; }
+
+    /* ========== MODULE TABLE ========== */
+    .mod-table { width: 100%; border-collapse: collapse; }
+    .mod-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint); padding: .5rem .75rem; text-align: left; border-bottom: 0.5px solid var(--border); }
+    .mod-table td { padding: .75rem .75rem; font-size: 13px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+    .mod-table tr:last-child td { border-bottom: none; }
+    .mod-table td:nth-child(2) { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+    .mod-count { font-family: var(--font-mono); font-size: 11px; background: var(--surface2); padding: 2px 8px; border-radius: 999px; color: var(--text-muted); }
+
+    /* ========== ENDPOINT CARD ========== */
+    .ep-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: .75rem;
+    }
+
+    .ep-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      transition: background .15s;
+      user-select: none;
+    }
+    .ep-header:hover { background: var(--surface2); }
+
+    .ep-method {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 6px;
+      background: var(--green-bg);
+      color: var(--green);
+      border: 0.5px solid rgba(16,185,129,0.2);
+      flex-shrink: 0;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .ep-path {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .ep-path span { color: var(--accent); }
+
+    .ep-desc-short { font-size: 12px; color: var(--text-muted); }
+
+    .ep-toggle {
+      font-size: 16px;
+      color: var(--text-faint);
+      transition: transform .2s;
+      flex-shrink: 0;
+    }
+    .ep-toggle.open { transform: rotate(45deg); }
+
+    .ep-body {
+      display: none;
+      border-top: 0.5px solid var(--border);
+      padding: 1.25rem 1.5rem;
+    }
+    .ep-body.open { display: block; }
+
+    .ep-auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--amber);
+      background: var(--amber-bg);
+      border: 0.5px solid rgba(245,158,11,0.2);
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 1.25rem;
+    }
+
+    .ep-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text-faint);
+      margin-bottom: .625rem;
+      margin-top: 1.25rem;
+    }
+    .ep-section-title:first-of-type { margin-top: 0; }
+
+    /* Params table */
+    .params-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .params-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint); padding: .4rem .75rem; text-align: left; background: var(--surface2); border-radius: 6px 6px 0 0; }
+    .params-table td { padding: .6rem .75rem; border-bottom: 0.5px solid var(--border); vertical-align: top; }
+    .params-table tr:last-child td { border-bottom: none; }
+    .params-table td:first-child { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+    .params-table td:nth-child(2) { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+    .req-badge { font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--red-bg); color: var(--red); border: 0.5px solid rgba(239,68,68,0.2); }
+
+    /* Code block */
+    .code-block {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      overflow-x: auto;
+      color: var(--text-muted);
+      white-space: pre;
+    }
+
+    .code-block .key   { color: #7dd3fc; }
+    .code-block .str   { color: #86efac; }
+    .code-block .num   { color: #fda4af; }
+    .code-block .null  { color: var(--text-faint); }
+    .code-block .punc  { color: var(--text-faint); }
+
+    /* ========== HTTP CODES ========== */
+    .http-codes { display: flex; flex-direction: column; gap: 5px; }
+    .http-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: .6rem .875rem;
+      background: var(--surface2);
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .http-code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 36px;
+    }
+    .http-200 { color: var(--green); }
+    .http-400 { color: var(--amber); }
+    .http-401 { color: var(--red); }
+    .http-404 { color: var(--amber); }
+    .http-500 { color: var(--red); }
+    .http-status { font-weight: 600; min-width: 160px; }
+    .http-desc { color: var(--text-muted); }
+
+    /* ========== RESPONSE MODEL ========== */
+    .field-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .field-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint); padding: .4rem .75rem; text-align: left; }
+    .field-table td { padding: .6rem .75rem; border-bottom: 0.5px solid var(--border); vertical-align: top; }
+    .field-table tr:last-child td { border-bottom: none; }
+    .field-table td:first-child { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+    .field-table td:nth-child(2) { font-family: var(--font-mono); font-size: 11px; color: #f0abfc; }
+    .field-table td:last-child { color: var(--text-muted); }
+
+    .divider { height: 0.5px; background: var(--border); margin: 1.75rem 0; }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 700px) {
+      .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 0.5px solid var(--border); }
+      .main { margin-left: 0; padding: 1.25rem 1rem 3rem; }
+      .hero-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <div class="logo-icon">E</div>
+      <div>
+        <div class="logo-text">EstadisticasApi</div>
+        <div class="logo-sub">Oficina de Informática</div>
+      </div>
+    </div>
+    <div class="version-pill"><div class="version-dot"></div> v1.0.0 · Mayo 2026</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-label">General</div>
+      <button class="nav-item active" onclick="showSection('overview')" id="nav-overview">Información general</button>
+      <button class="nav-item" onclick="showSection('description')" id="nav-description">Descripción</button>
+      <button class="nav-item" onclick="showSection('modules')" id="nav-modules">Módulos disponibles</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Auth</div>
+      <button class="nav-item" onclick="showSection('auth')" id="nav-auth">
+        <span class="nav-method">POST</span> Auth / Login
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Video</div>
+      <button class="nav-item" onclick="showSection('video')" id="nav-video">
+        <span class="nav-method">GET</span> Endpoints
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Tomo</div>
+      <button class="nav-item" onclick="showSection('tomo')" id="nav-tomo">
+        <span class="nav-method">GET</span> Endpoints
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Resonancia</div>
+      <button class="nav-item" onclick="showSection('resonancia')" id="nav-resonancia">
+        <span class="nav-method">GET</span> Endpoints
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Ecografía</div>
+      <button class="nav-item" onclick="showSection('eco')" id="nav-eco">
+        <span class="nav-method">GET</span> Endpoints
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Referencia</div>
+      <button class="nav-item" onclick="showSection('model')" id="nav-model">Modelo de respuesta</button>
+      <button class="nav-item" onclick="showSection('codes')" id="nav-codes">Códigos HTTP</button>
+    </div>
+  </nav>
+</aside>
+
+<main class="main">
+
+  <section class="doc-section visible" id="sec-overview">
+    <div class="hero">
+      <div class="hero-badge">REST API · OpenAPI 3.1.1</div>
+      <h1>EstadisticasApi</h1>
+      <p class="hero-sub">Documentación Técnica · Oficina de Informática</p>
+      <div class="hero-grid">
+        <div class="hero-stat">
+          <div class="hero-stat-label">Base URL</div>
+          <div class="hero-stat-value" style="font-size:11px">apiestadisticas.gruposantafe.com.ar</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Autenticación</div>
+          <div class="hero-stat-value">JWT Bearer</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Protocolo</div>
+          <div class="hero-stat-value">HTTPS · JSON</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-hdr">
+      <h2>Información General</h2>
+    </div>
+
+    <div class="card">
+      <table class="info-table">
+        <tr><td>Base URL</td><td>https://apiestadisticas.gruposantafe.com.ar/</td></tr>
+        <tr><td>Protocolo</td><td>HTTPS</td></tr>
+        <tr><td>Formato</td><td>JSON</td></tr>
+        <tr><td>Autenticación</td><td>JWT Bearer Token</td></tr>
+        <tr><td>Especificación</td><td>OpenAPI 3.1.1</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-description">
+    <div class="section-hdr">
+      <h2>Descripción</h2>
+    </div>
+    <div class="card">
+      <p style="font-size:13px;line-height:1.75;color:var(--text-muted)">
+        Esta API REST provee estadísticas de estudios médicos. Permite consultar Videoendoscopias,
+        Tomografías y Resonancias Magnéticas filtradas por rango de fechas, desagregadas por período,
+        intermediaria y obra social. Todos los endpoints están protegidos con JWT y requieren
+        autenticación previa a través de la API de Identity.
+      </p>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-modules">
+    <div class="section-hdr">
+      <h2>Módulos disponibles</h2>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="mod-table">
+        <thead>
+          <tr><th>Módulo</th><th>Prefijo</th><th>Descripción</th><th>Endpoints</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Auth</strong></td>
+            <td>/api/Auth</td>
+            <td style="font-size:12px;color:var(--text-muted)">Autenticación y obtención de token JWT</td>
+            <td><span class="mod-count">1</span></td>
+          </tr>
+          <tr>
+            <td><strong>Video</strong></td>
+            <td>/api/Video</td>
+            <td style="font-size:12px;color:var(--text-muted)">Estudios de videoendoscopía</td>
+            <td><span class="mod-count">6</span></td>
+          </tr>
+          <tr>
+            <td><strong>Tomo</strong></td>
+            <td>/api/Tomo</td>
+            <td style="font-size:12px;color:var(--text-muted)">Estudios de tomografía</td>
+            <td><span class="mod-count">5</span></td>
+          </tr>
+          <tr>
+            <td><strong>Resonancia</strong></td>
+            <td>/api/Resonancia</td>
+            <td style="font-size:12px;color:var(--text-muted)">Estudios de resonancia magnética</td>
+            <td><span class="mod-count">5</span></td>
+          </tr>
+          <tr>
+            <td><strong>Eco</strong></td>
+            <td>/api/Eco</td>
+            <td style="font-size:12px;color:var(--text-muted)">Estudios de ecografía</td>
+            <td><span class="mod-count">6</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-auth">
+    <div class="section-hdr">
+      <h2>Auth — Autenticación JWT</h2>
+      <p>Antes de consumir cualquier endpoint de estadísticas es necesario obtener un token JWT.</p>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method" style="background:var(--blue-bg);color:var(--blue);border-color:rgba(59,130,246,0.2)">POST</span>
+        <span class="ep-path">/api/<span>Auth</span>/login</span>
+        <span class="ep-desc-short">Autenticar usuario y obtener token JWT</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">
+          Autentica al usuario y devuelve un token JWT. El token tiene una validez de <strong style="color:var(--text)">60 minutos</strong>.
+          Autenticación en: <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">https://identityout.gruposantafe.com.ar/api/Auth/login</code>
+        </p>
+
+        <div class="ep-section-title">Body del request (application/json)</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Requerido</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td>email</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">Email del usuario registrado en el sistema</td></tr>
+            <tr><td>password</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">Contraseña del usuario</td></tr>
+          </tbody>
+        </table>
+
+        <div class="ep-section-title">Ejemplo de body</div>
+        <div class="code-block" style="margin-bottom:1.25rem"><span class="punc">{
+  </span><span class="key">"email"</span><span class="punc">: </span><span class="str">"usuario@dominio.com"</span><span class="punc">,
+  </span><span class="key">"password"</span><span class="punc">: </span><span class="str">"contraseña"</span>
+<span class="punc">}</span></div>
+
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block" style="margin-bottom:1.25rem"><span class="punc">{
+  </span><span class="key">"token"</span><span class="punc">: </span><span class="str">"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span><span class="punc">,
+  </span><span class="key">"roles"</span><span class="punc">: [</span><span class="str">"Admin"</span><span class="punc">],
+  </span><span class="key">"user"</span><span class="punc">: {
+    </span><span class="key">"id"</span><span class="punc">: </span><span class="str">"be5bbf73-3faa-494f-b9d2-63ac616320a7"</span><span class="punc">,
+    </span><span class="key">"email"</span><span class="punc">: </span><span class="str">"usuario@dominio.com"</span><span class="punc">,
+    </span><span class="key">"userName"</span><span class="punc">: </span><span class="str">"usuario@dominio.com"</span>
+    <span class="punc">}
+}</span></div>
+
+        <div class="ep-section-title">Cómo usar el token</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:.625rem">Incluir en el header <code style="font-family:var(--font-mono);color:var(--accent)">Authorization</code> de cada request:</p>
+        <div class="code-block" style="margin-bottom:1.25rem">Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</div>
+
+        <div class="ep-section-title">Ejemplo con C# HttpClient</div>
+        <div class="code-block"><span class="punc">// 1. Login y obtener token
+</span><span class="key">var</span> loginRes = <span class="key">await</span> client.PostAsJsonAsync(
+    <span class="str">"https://identityout.gruposantafe.com.ar/api/Auth/login"</span>,
+    <span class="key">new</span> { email = <span class="str">"usuario@dominio.com"</span>, password = <span class="str">"pass"</span> });
+<span class="key">var</span> token = (<span class="key">await</span> loginRes.Content.ReadFromJsonAsync&lt;LoginResponse&gt;()).Token;
+
+<span class="punc">// 2. Usar el token en requests protegidos
+</span>client.DefaultRequestHeaders.Authorization =
+    <span class="key">new</span> AuthenticationHeaderValue(<span class="str">"Bearer"</span>, token);
+<span class="key">var</span> res = <span class="key">await</span> client.GetAsync(
+    <span class="str">"/api/Video?fechaDesde=2024-01-01&amp;fechaHasta=2024-12-31"</span>);</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-video">
+    <div class="section-hdr">
+      <h2>Video — Videoendoscopía</h2>
+      <p>Estadísticas de estudios de videoendoscopía filtradas por rango de fechas.</p>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Video</span></span>
+        <span class="ep-desc-short">Total por servicio, año y mes</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total de videoendoscopías agrupadas por servicio, año y mes para el rango de fechas indicado.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"VIDEOENDOSCOPIA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">2024</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">1</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">142</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Video</span>/total-por-fecha</span>
+        <span class="ep-desc-short">Total acumulado por servicio</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total acumulado de videoendoscopías agrupado por servicio. <code style="font-family:var(--font-mono);font-size:11px">anio</code> y <code style="font-family:var(--font-mono);font-size:11px">mes</code> retornan 0.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"VIDEOENDOSCOPIA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">2343</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Video</span>/total-por-intermediaria</span>
+        <span class="ep-desc-short">Total agrupado por intermediaria</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total agrupado por intermediaria. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> y <code style="font-family:var(--font-mono);font-size:11px">obraSocial</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Imsa"</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">864</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Video</span>/total-por-os</span>
+        <span class="ep-desc-short">Total discriminado por obra social</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total discriminado por obra social. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> e <code style="font-family:var(--font-mono);font-size:11px">intermediaria</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="str">"JERARQUICOS"</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">601</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Video</span>/detalle</span>
+        <span class="ep-desc-short">Listado detallado de estudios</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el detalle completo de cada estudio filtrado por rango de fechas, ubicación y servicio.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+            <tr><td>ubic_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">3</td></tr>
+            <tr><td>serv_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">128</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"me_id"</span><span class="punc">: </span><span class="num">5565482</span><span class="punc">,
+  </span><span class="key">"me_Fecha"</span><span class="punc">: </span><span class="str">"2026-02-07T00:00:00"</span><span class="punc">,
+  </span><span class="key">"me_Ape"</span><span class="punc">: </span><span class="str">"ARANDA"</span><span class="punc">,
+  </span><span class="key">"me_Nombre"</span><span class="punc">: </span><span class="str">"SALVADOR"</span><span class="punc">,
+  </span><span class="key">"me_Edad"</span><span class="punc">: </span><span class="num">71</span><span class="punc">,
+  </span><span class="key">"area"</span><span class="punc">: </span><span class="str">"A"</span><span class="punc">,
+  </span><span class="key">"horaAtencion"</span><span class="punc">: </span><span class="str">"919"</span><span class="punc">,
+  </span><span class="key">"sexoPaciente"</span><span class="punc">: </span><span class="str">"M"</span><span class="punc">,
+  </span><span class="key">"localidadPaciente"</span><span class="punc">: </span><span class="str">"SAN JUSTO"</span><span class="punc">,
+  </span><span class="key">"siglasObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"nombreObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Iapos"</span><span class="punc">,
+  </span><span class="key">"matriculaSolicitante"</span><span class="punc">: </span><span class="str">"1233"</span><span class="punc">,
+  </span><span class="key">"nombreSolicitante"</span><span class="punc">: </span><span class="str">"BARENGO RAUL"</span><span class="punc">,
+  </span><span class="key">"codigoPractica"</span><span class="punc">: </span><span class="str">"180132"</span><span class="punc">,
+  </span><span class="key">"nombrePractica"</span><span class="punc">: </span><span class="str">"ECOGRAFIA DE PARTES BLANDAS"</span><span class="punc">,
+  </span><span class="key">"cantidadPractica"</span><span class="punc">: </span><span class="num">2</span><span class="punc">,
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS"</span><span class="punc">,
+  </span><span class="key">"consultorio"</span><span class="punc">: </span><span class="str">"SALA UNO ECO"</span><span class="punc">,
+  </span><span class="key">"mpEfector"</span><span class="punc">: </span><span class="num">1987</span><span class="punc">,
+  </span><span class="key">"nombreEfector"</span><span class="punc">: </span><span class="str">"ZALAZAR GONZALO E"</span><span class="punc">,
+  </span><span class="key">"usuario"</span><span class="punc">: </span><span class="str">"fgonzalez"</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-tomo">
+    <div class="section-hdr">
+      <h2>Tomo — Tomografía</h2>
+      <p>Estadísticas de estudios de tomografía computada filtradas por rango de fechas.</p>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Tomo</span></span>
+        <span class="ep-desc-short">Total por servicio, año y mes</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total de tomografías agrupadas por servicio, año y mes para el rango de fechas indicado.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"TOMOGRAFIA COMPUTADA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">2024</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">1</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">142</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Tomo</span>/total-por-fecha</span>
+        <span class="ep-desc-short">Total acumulado por servicio</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total acumulado de tomografías agrupado por servicio. <code style="font-family:var(--font-mono);font-size:11px">anio</code> y <code style="font-family:var(--font-mono);font-size:11px">mes</code> retornan 0.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"TOMOGRAFIA COMPUTADA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">2343</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Tomo</span>/total-por-intermediaria</span>
+        <span class="ep-desc-short">Total agrupado por intermediaria</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total agrupado por intermediaria. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> y <code style="font-family:var(--font-mono);font-size:11px">obraSocial</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Imsa"</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">864</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Tomo</span>/total-por-os</span>
+        <span class="ep-desc-short">Total discriminado por obra social</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total discriminado por obra social. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> e <code style="font-family:var(--font-mono);font-size:11px">intermediaria</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="str">"JERARQUICOS"</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">601</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Tomo</span>/detalle</span>
+        <span class="ep-desc-short">Listado detallado de tomografías</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el detalle completo de cada estudio de tomografía filtrado por rango de fechas, ubicación y servicio.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+            <tr><td>ubic_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">3</td></tr>
+            <tr><td>serv_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">128</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"me_id"</span><span class="punc">: </span><span class="num">5565482</span><span class="punc">,
+  </span><span class="key">"me_Fecha"</span><span class="punc">: </span><span class="str">"2026-02-07T00:00:00"</span><span class="punc">,
+  </span><span class="key">"me_Ape"</span><span class="punc">: </span><span class="str">"ARANDA"</span><span class="punc">,
+  </span><span class="key">"me_Nombre"</span><span class="punc">: </span><span class="str">"SALVADOR"</span><span class="punc">,
+  </span><span class="key">"me_Edad"</span><span class="punc">: </span><span class="num">71</span><span class="punc">,
+  </span><span class="key">"area"</span><span class="punc">: </span><span class="str">"A"</span><span class="punc">,
+  </span><span class="key">"horaAtencion"</span><span class="punc">: </span><span class="str">"919"</span><span class="punc">,
+  </span><span class="key">"sexoPaciente"</span><span class="punc">: </span><span class="str">"M"</span><span class="punc">,
+  </span><span class="key">"localidadPaciente"</span><span class="punc">: </span><span class="str">"SAN JUSTO"</span><span class="punc">,
+  </span><span class="key">"siglasObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"nombreObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Iapos"</span><span class="punc">,
+  </span><span class="key">"matriculaSolicitante"</span><span class="punc">: </span><span class="str">"1233"</span><span class="punc">,
+  </span><span class="key">"nombreSolicitante"</span><span class="punc">: </span><span class="str">"BARENGO RAUL"</span><span class="punc">,
+  </span><span class="key">"codigoPractica"</span><span class="punc">: </span><span class="str">"180132"</span><span class="punc">,
+  </span><span class="key">"nombrePractica"</span><span class="punc">: </span><span class="str">"ECOGRAFIA DE PARTES BLANDAS"</span><span class="punc">,
+  </span><span class="key">"cantidadPractica"</span><span class="punc">: </span><span class="num">2</span><span class="punc">,
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS"</span><span class="punc">,
+  </span><span class="key">"consultorio"</span><span class="punc">: </span><span class="str">"SALA UNO ECO"</span><span class="punc">,
+  </span><span class="key">"mpEfector"</span><span class="punc">: </span><span class="num">1987</span><span class="punc">,
+  </span><span class="key">"nombreEfector"</span><span class="punc">: </span><span class="str">"ZALAZAR GONZALO E"</span><span class="punc">,
+  </span><span class="key">"usuario"</span><span class="punc">: </span><span class="str">"fgonzalez"</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-resonancia">
+    <div class="section-hdr">
+      <h2>Resonancia — Resonancia Magnética</h2>
+      <p>Estadísticas de estudios de resonancia magnética filtradas por rango de fechas.</p>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Resonancia</span></span>
+        <span class="ep-desc-short">Total por servicio, año y mes</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total de resonancias magnéticas agrupadas por servicio, año y mes para el rango de fechas indicado.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"RESONANCIA MAGNETICA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">2024</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">1</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">142</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Resonancia</span>/total-por-fecha</span>
+        <span class="ep-desc-short">Total acumulado por servicio</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total acumulado de resonancias agrupado por servicio. <code style="font-family:var(--font-mono);font-size:11px">anio</code> y <code style="font-family:var(--font-mono);font-size:11px">mes</code> retornan 0.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"RESONANCIA MAGNETICA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">2343</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Resonancia</span>/total-por-intermediaria</span>
+        <span class="ep-desc-short">Total agrupado por intermediaria</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total agrupado por intermediaria. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> y <code style="font-family:var(--font-mono);font-size:11px">obraSocial</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Imsa"</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">864</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Resonancia</span>/total-por-os</span>
+        <span class="ep-desc-short">Total discriminado por obra social</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total discriminado por obra social. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> e <code style="font-family:var(--font-mono);font-size:11px">intermediaria</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="str">"JERARQUICOS"</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">601</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Resonancia</span>/detalle</span>
+        <span class="ep-desc-short">Listado detallado de resonancias</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el detalle completo de cada estudio filtrado por rango de fechas, ubicación y servicio.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+            <tr><td>ubic_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">3</td></tr>
+            <tr><td>serv_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">128</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"me_id"</span><span class="punc">: </span><span class="num">5565482</span><span class="punc">,
+  </span><span class="key">"me_Fecha"</span><span class="punc">: </span><span class="str">"2026-02-07T00:00:00"</span><span class="punc">,
+  </span><span class="key">"me_Ape"</span><span class="punc">: </span><span class="str">"ARANDA"</span><span class="punc">,
+  </span><span class="key">"me_Nombre"</span><span class="punc">: </span><span class="str">"SALVADOR"</span><span class="punc">,
+  </span><span class="key">"me_Edad"</span><span class="punc">: </span><span class="num">71</span><span class="punc">,
+  </span><span class="key">"area"</span><span class="punc">: </span><span class="str">"A"</span><span class="punc">,
+  </span><span class="key">"horaAtencion"</span><span class="punc">: </span><span class="str">"919"</span><span class="punc">,
+  </span><span class="key">"sexoPaciente"</span><span class="punc">: </span><span class="str">"M"</span><span class="punc">,
+  </span><span class="key">"localidadPaciente"</span><span class="punc">: </span><span class="str">"SAN JUSTO"</span><span class="punc">,
+  </span><span class="key">"siglasObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"nombreObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Iapos"</span><span class="punc">,
+  </span><span class="key">"matriculaSolicitante"</span><span class="punc">: </span><span class="str">"1233"</span><span class="punc">,
+  </span><span class="key">"nombreSolicitante"</span><span class="punc">: </span><span class="str">"BARENGO RAUL"</span><span class="punc">,
+  </span><span class="key">"codigoPractica"</span><span class="punc">: </span><span class="str">"180132"</span><span class="punc">,
+  </span><span class="key">"nombrePractica"</span><span class="punc">: </span><span class="str">"ECOGRAFIA DE PARTES BLANDAS"</span><span class="punc">,
+  </span><span class="key">"cantidadPractica"</span><span class="punc">: </span><span class="num">2</span><span class="punc">,
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS"</span><span class="punc">,
+  </span><span class="key">"consultorio"</span><span class="punc">: </span><span class="str">"SALA UNO ECO"</span><span class="punc">,
+  </span><span class="key">"mpEfector"</span><span class="punc">: </span><span class="num">1987</span><span class="punc">,
+  </span><span class="key">"nombreEfector"</span><span class="punc">: </span><span class="str">"ZALAZAR GONZALO E"</span><span class="punc">,
+  </span><span class="key">"usuario"</span><span class="punc">: </span><span class="str">"fgonzalez"</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-eco">
+    <div class="section-hdr">
+      <h2>Eco — Ecografía</h2>
+      <p>Estadísticas de estudios de ecografía filtradas por rango de fechas.</p>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Eco</span></span>
+        <span class="ep-desc-short">Total por servicio, año y mes</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total de ecografías agrupadas por servicio, año y mes para el rango de fechas indicado.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIA MAMARIA"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">2026</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">1</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">811</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Eco</span>/total-por-fecha</span>
+        <span class="ep-desc-short">Total acumulado del período</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total acumulado de ecografías agrupado por servicio. <code style="font-family:var(--font-mono);font-size:11px">anio</code> y <code style="font-family:var(--font-mono);font-size:11px">mes</code> retornan 0.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">9641</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Eco</span>/total-por-intermediaria</span>
+        <span class="ep-desc-short">Total por intermediaria</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total agrupado por intermediaria. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> y <code style="font-family:var(--font-mono);font-size:11px">obraSocial</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Iapos"</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">4692</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Eco</span>/total-por-os</span>
+        <span class="ep-desc-short">Total por obra social</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total discriminado por obra social. <code style="font-family:var(--font-mono);font-size:11px">servicio</code> e <code style="font-family:var(--font-mono);font-size:11px">intermediaria</code> retornan null.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+  </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="str">"JERARQUICOS"</span><span class="punc">,
+  </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+  </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">1275</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Eco</span>/total-por-ubicacion</span>
+        <span class="ep-desc-short">Total por ubicación — exclusivo Eco</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el total de ecografías agrupado por ubicación o sede. Este endpoint es exclusivo del módulo Eco.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[
+  {
+    </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS SAN LUIS"</span><span class="punc">,
+    </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+    </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+    </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+    </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+    </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">1343</span>
+  <span class="punc">},
+  {
+    </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS CLINICA STO TOME"</span><span class="punc">,
+    </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+    </span><span class="key">"obraSocial"</span><span class="punc">: </span><span class="null">null</span><span class="punc">,
+    </span><span class="key">"anio"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+    </span><span class="key">"mes"</span><span class="punc">: </span><span class="num">0</span><span class="punc">,
+    </span><span class="key">"cantidad"</span><span class="punc">: </span><span class="num">918</span>
+  <span class="punc">}
+]</span></div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header" onclick="toggleEp(this)">
+        <span class="ep-method">GET</span>
+        <span class="ep-path">/api/<span>Eco</span>/detalle</span>
+        <span class="ep-desc-short">Listado detallado de estudios</span>
+        <span class="ep-toggle">+</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-auth-badge">🔒 Requiere autenticación JWT — Authorization: Bearer {token}</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Retorna el detalle completo de cada estudio de ecografía filtrado por rango de fechas, ubicación y servicio.</p>
+        <div class="ep-section-title">Parámetros de consulta</div>
+        <table class="params-table" style="margin-bottom:1.25rem">
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Requerido</th><th>Formato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>fechaDesde</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-01-01</td></tr>
+            <tr><td>fechaHasta</td><td>string</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">YYYY-MM-DD</td><td style="color:var(--text-muted)">2024-12-31</td></tr>
+            <tr><td>ubic_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">3</td></tr>
+            <tr><td>serv_id</td><td>integer</td><td><span class="req-badge">Sí</span></td><td style="color:var(--text-muted)">número entero</td><td style="color:var(--text-muted)">128</td></tr>
+          </tbody>
+        </table>
+        <div class="ep-section-title">Respuesta exitosa (200 OK)</div>
+        <div class="code-block"><span class="punc">[{
+  </span><span class="key">"me_id"</span><span class="punc">: </span><span class="num">5565482</span><span class="punc">,
+  </span><span class="key">"me_Fecha"</span><span class="punc">: </span><span class="str">"2026-02-07T00:00:00"</span><span class="punc">,
+  </span><span class="key">"me_Ape"</span><span class="punc">: </span><span class="str">"ARANDA"</span><span class="punc">,
+  </span><span class="key">"me_Nombre"</span><span class="punc">: </span><span class="str">"SALVADOR"</span><span class="punc">,
+  </span><span class="key">"me_Edad"</span><span class="punc">: </span><span class="num">71</span><span class="punc">,
+  </span><span class="key">"area"</span><span class="punc">: </span><span class="str">"A"</span><span class="punc">,
+  </span><span class="key">"horaAtencion"</span><span class="punc">: </span><span class="str">"919"</span><span class="punc">,
+  </span><span class="key">"sexoPaciente"</span><span class="punc">: </span><span class="str">"M"</span><span class="punc">,
+  </span><span class="key">"localidadPaciente"</span><span class="punc">: </span><span class="str">"SAN JUSTO"</span><span class="punc">,
+  </span><span class="key">"siglasObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"nombreObraSocial"</span><span class="punc">: </span><span class="str">"IAPOS"</span><span class="punc">,
+  </span><span class="key">"intermediaria"</span><span class="punc">: </span><span class="str">"Iapos"</span><span class="punc">,
+  </span><span class="key">"matriculaSolicitante"</span><span class="punc">: </span><span class="str">"1233"</span><span class="punc">,
+  </span><span class="key">"nombreSolicitante"</span><span class="punc">: </span><span class="str">"BARENGO RAUL"</span><span class="punc">,
+  </span><span class="key">"codigoPractica"</span><span class="punc">: </span><span class="str">"180132"</span><span class="punc">,
+  </span><span class="key">"nombrePractica"</span><span class="punc">: </span><span class="str">"ECOGRAFIA DE PARTES BLANDAS"</span><span class="punc">,
+  </span><span class="key">"cantidadPractica"</span><span class="punc">: </span><span class="num">2</span><span class="punc">,
+  </span><span class="key">"servicio"</span><span class="punc">: </span><span class="str">"ECOGRAFIAS"</span><span class="punc">,
+  </span><span class="key">"consultorio"</span><span class="punc">: </span><span class="str">"SALA UNO ECO"</span><span class="punc">,
+  </span><span class="key">"mpEfector"</span><span class="punc">: </span><span class="num">1987</span><span class="punc">,
+  </span><span class="key">"nombreEfector"</span><span class="punc">: </span><span class="str">"ZALAZAR GONZALO E"</span><span class="punc">,
+  </span><span class="key">"usuario"</span><span class="punc">: </span><span class="str">"fgonzalez"</span>
+<span class="punc">}]</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-model">
+    <div class="section-hdr">
+      <h2>Modelo de respuesta</h2>
+      <p>Todos los endpoints devuelven arrays JSON. Los campos no utilizados retornan null o 0.</p>
+    </div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-faint);margin-bottom:.5rem">Campos — endpoints de totales</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:1rem">
+      <table class="field-table">
+        <thead style="background:var(--surface2)">
+          <tr><th>Campo</th><th>Tipo</th><th>Descripción</th><th>Endpoints</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>servicio</td><td>string | null</td><td style="color:var(--text-muted)">Nombre del servicio médico</td><td style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">/[mod], /total-por-fecha</td></tr>
+          <tr><td>intermediaria</td><td>string | null</td><td style="color:var(--text-muted)">Nombre de la intermediaria</td><td style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">/total-por-intermediaria</td></tr>
+          <tr><td>obraSocial</td><td>string | null</td><td style="color:var(--text-muted)">Nombre de la obra social</td><td style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">/total-por-os</td></tr>
+          <tr><td>anio</td><td>integer</td><td style="color:var(--text-muted)">Año del período (0 si no aplica)</td><td style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">/Video, /Tomo, /Resonancia, /Eco</td></tr>
+          <tr><td>mes</td><td>integer</td><td style="color:var(--text-muted)">Mes del período (0 si no aplica)</td><td style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">/Video, /Tomo, /Resonancia, /Eco</td></tr>
+          <tr><td>cantidad</td><td>integer</td><td style="color:var(--text-muted)">Total de estudios realizados</td><td style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">todos</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-faint);margin-bottom:.5rem;margin-top:1rem">Campos adicionales — endpoint /detalle (todos los módulos)</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="field-table">
+        <thead style="background:var(--surface2)">
+          <tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>me_id</td><td>integer</td><td style="color:var(--text-muted)">ID del estudio</td></tr>
+          <tr><td>me_Fecha</td><td>datetime</td><td style="color:var(--text-muted)">Fecha del estudio</td></tr>
+          <tr><td>me_Ape</td><td>string</td><td style="color:var(--text-muted)">Apellido del paciente</td></tr>
+          <tr><td>me_Nombre</td><td>string</td><td style="color:var(--text-muted)">Nombre del paciente</td></tr>
+          <tr><td>me_Edad</td><td>integer</td><td style="color:var(--text-muted)">Edad del paciente</td></tr>
+          <tr><td>sexoPaciente</td><td>string</td><td style="color:var(--text-muted)">Sexo del paciente (M/F)</td></tr>
+          <tr><td>localidadPaciente</td><td>string</td><td style="color:var(--text-muted)">Localidad del paciente</td></tr>
+          <tr><td>siglasObraSocial</td><td>string</td><td style="color:var(--text-muted)">Siglas de la obra social</td></tr>
+          <tr><td>nombreObraSocial</td><td>string</td><td style="color:var(--text-muted)">Nombre completo de la obra social</td></tr>
+          <tr><td>intermediaria</td><td>string</td><td style="color:var(--text-muted)">Nombre de la intermediaria</td></tr>
+          <tr><td>matriculaSolicitante</td><td>string</td><td style="color:var(--text-muted)">Matrícula del médico solicitante</td></tr>
+          <tr><td>nombreSolicitante</td><td>string</td><td style="color:var(--text-muted)">Nombre del médico solicitante</td></tr>
+          <tr><td>codigoPractica</td><td>string</td><td style="color:var(--text-muted)">Código de la práctica realizada</td></tr>
+          <tr><td>nombrePractica</td><td>string</td><td style="color:var(--text-muted)">Nombre de la práctica realizada</td></tr>
+          <tr><td>cantidadPractica</td><td>integer</td><td style="color:var(--text-muted)">Cantidad de prácticas</td></tr>
+          <tr><td>servicio</td><td>string</td><td style="color:var(--text-muted)">Nombre del servicio médico</td></tr>
+          <tr><td>consultorio</td><td>string</td><td style="color:var(--text-muted)">Consultorio donde se realizó el estudio</td></tr>
+          <tr><td>mpEfector</td><td>integer</td><td style="color:var(--text-muted)">Matrícula del médico efector</td></tr>
+          <tr><td>nombreEfector</td><td>string</td><td style="color:var(--text-muted)">Nombre del médico efector</td></tr>
+          <tr><td>usuario</td><td>string</td><td style="color:var(--text-muted)">Usuario que registró el estudio</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="doc-section" id="sec-codes">
+    <div class="section-hdr">
+      <h2>Códigos de respuesta HTTP</h2>
+    </div>
+    <div class="card">
+      <div class="http-codes">
+        <div class="http-row">
+          <span class="http-code http-200">200</span>
+          <span class="http-status">OK</span>
+          <span class="http-desc">Solicitud exitosa. Retorna array de datos.</span>
+        </div>
+        <div class="http-row">
+          <span class="http-code http-400">400</span>
+          <span class="http-status">Bad Request</span>
+          <span class="http-desc">Parámetros inválidos o faltantes.</span>
+        </div>
+        <div class="http-row">
+          <span class="http-code http-401">401</span>
+          <span class="http-status">Unauthorized</span>
+          <span class="http-desc">Token JWT ausente, inválido o expirado.</span>
+        </div>
+        <div class="http-row">
+          <span class="http-code http-404">404</span>
+          <span class="http-status">Not Found</span>
+          <span class="http-desc">Endpoint no encontrado. Verificar URL.</span>
+        </div>
+        <div class="http-row">
+          <span class="http-code http-500">500</span>
+          <span class="http-status">Internal Server Error</span>
+          <span class="http-desc">Error interno o fallo en la base de datos.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const sections = ['overview','description','modules','auth','video','tomo','resonancia','eco','model','codes'];
+
+  function showSection(key) {
+    sections.forEach(k => {
+      const el = document.getElementById('sec-' + k);
+      if(el) el.classList.toggle('visible', k === key);
+      document.getElementById('nav-' + k)?.classList.toggle('active', k === key);
+    });
+  }
+
+  function toggleEp(header) {
+    const body = header.nextElementSibling;
+    const tog  = header.querySelector('.ep-toggle');
+    const open = body.classList.toggle('open');
+    if(tog) tog.classList.toggle('open', open);
+  }
+</script>
+</html>
+</body>

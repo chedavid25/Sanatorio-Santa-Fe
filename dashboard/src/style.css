@@ -1,0 +1,234 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+/* Overrides para asegurar que la plantilla Minia ocupe todo el ancho */
+
+:root {
+    --ssf-blue-dark: #004884;
+    --ssf-blue-light: #0072bc;
+    --ssf-white: #ffffff;
+    --ssf-bg-sidebar: #002d53; /* Azul muy oscuro para el menú lateral */
+}
+
+html, body, #app {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', 'Outfit', sans-serif; /* Usar Inter para mejor manejo de acentos */
+}
+
+#app {
+    width: 100vw;
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+/* Colores Corporativos en Sidebar y Logo */
+.vertical-menu, .navbar-brand-box {
+    background: var(--ssf-bg-sidebar) !important;
+}
+
+#sidebar-menu ul li a {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+#sidebar-menu ul li a:hover, #sidebar-menu ul li a.active {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+#sidebar-menu ul li a i {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.menu-title {
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Header Overrides */
+#page-topbar {
+    background-color: #fff !important;
+    border-bottom: 1px solid #eff2f7;
+}
+
+.logo-txt {
+    color: #fff !important; /* Texto blanco sobre fondo oscuro */
+    font-weight: 700;
+}
+
+/* Logo de Texto Premium - Dos líneas para evitar recortes */
+.logo-sidebar-text {
+    color: #fff !important;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 70px; /* Altura del topbar */
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+}
+
+.logo-sidebar-text .line-1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+.logo-sidebar-text .line-2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+}
+
+/* Resetear mayúsculas forzadas en menús y títulos para mejor visualización de acentos */
+#sidebar-menu ul li a span, 
+.menu-title,
+.card-body span.text-muted,
+.card-title {
+    text-transform: none !important;
+}
+
+/* Asegurar visibilidad de logo SF en modo colapsado - Minia específico */
+body.vertical-collpsed .navbar-brand-box .logo-sm {
+    display: block !important;
+}
+
+body.vertical-collpsed .navbar-brand-box .logo-lg {
+    display: none !important;
+}
+
+.logo-sm .logo-txt {
+    display: block !important;
+    line-height: 70px;
+    text-align: center;
+    font-size: 1.4rem !important;
+    font-weight: 900;
+    color: #fff !important;
+    text-transform: none !important;
+}
+
+/* Fix para acentos y fuentes */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Choices.js Customization */
+.choices__list--dropdown .choices__item--selectable.is-highlighted {
+    background-color: var(--ssf-blue-light) !important;
+    color: #fff !important;
+}
+
+.choices__inner {
+    border-radius: 6px !important;
+    border: 1px solid #ced4da !important;
+    background-color: #fff !important;
+}
+
+/* Botones y Badges Corporativos */
+.btn-primary {
+    background-color: var(--ssf-blue-dark) !important;
+    border-color: var(--ssf-blue-dark) !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--ssf-blue-light) !important;
+    border-color: var(--ssf-blue-light) !important;
+}
+
+.bg-primary {
+    background-color: var(--ssf-blue-dark) !important;
+}
+
+/* Card Titles sizes */
+.kpi-title-small {
+    font-size: 1.1rem !important;
+    font-weight: 600;
+}
+
+/* Fixes de visualización */
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #fff;
+    z-index: 9999;
+}
+
+.font-size-13 { font-size: 13px !important; }
+.font-size-14 { font-size: 14px !important; }
+.font-size-15 { font-size: 15px !important; }
+.font-size-16 { font-size: 16px !important; }
+.font-size-18 { font-size: 18px !important; }
+.font-size-20 { font-size: 20px !important; }
+.font-size-24 { font-size: 24px !important; }
+.font-size-36 { font-size: 36px !important; }
+
+/* ==========================================================================
+   ApexCharts Tooltip Premium Dark Theme Override
+   ========================================================================== */
+.apexcharts-tooltip.apexcharts-theme-light,
+.apexcharts-tooltip.apexcharts-theme-dark {
+    background: #1e293b !important; /* Slate-800 */
+    border: 1px solid #334155 !important; /* Slate-700 */
+    color: #ffffff !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
+    border-radius: 6px !important;
+    
+    /* Evita que los tooltips se corten con el sidebar y permite el ajuste de texto largo */
+    white-space: normal !important;
+    max-width: 320px !important;
+    word-break: break-word !important;
+    z-index: 10100 !important; /* Por encima del sidebar de Minia */
+}
+
+.apexcharts-tooltip-title {
+    background: #0f172a !important; /* Slate-900 */
+    border-bottom: 1px solid #334155 !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+}
+
+.apexcharts-tooltip-series-group {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    padding: 4px 10px !important;
+    white-space: normal !important;
+}
+
+.apexcharts-tooltip-text {
+    color: #ffffff !important;
+    font-family: 'Inter', 'Outfit', sans-serif !important;
+    font-size: 12px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+}
+
+.apexcharts-tooltip-text-y-label,
+.apexcharts-tooltip-text-y-value,
+.apexcharts-tooltip-y-group {
+    color: #ffffff !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+}
+
+/* Soporte para tooltips personalizados y selectores generales de texto */
+.apexcharts-tooltip div,
+.apexcharts-tooltip span,
+.apexcharts-tooltip b {
+    color: #ffffff !important;
+}
+
+.apexcharts-tooltip .text-muted {
+    color: #94a3b8 !important; /* Gris claro para el texto muted en fondo oscuro */
+}
+
+

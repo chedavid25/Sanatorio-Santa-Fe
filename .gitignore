@@ -1,0 +1,49 @@
+# Credenciales y Secretos (CRÍTICO)
+.env
+.env.local
+.env.*.local
+dashboard/.env
+
+# Dependencias
+node_modules/
+jspm_packages/
+package-lock.json (opcional, pero node_modules sí)
+# Nota: package-lock.json normalmente se sube a Git, pero node_modules NO.
+
+# Archivos compilados y temporales de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Carpeta de pruebas y scratch
+scratch/
+
+# Archivos pesados y comprimidos
+*.zip
+*.rar
+*.7z
+Plantilla Minia/
+Plantilla Minia.zip
+
+# Archivos de datos o volcados temporales de texto/excel
+complete_excel_content.txt
+excel_data.json
+sheet_*.txt
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Configuraciones de editores
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
