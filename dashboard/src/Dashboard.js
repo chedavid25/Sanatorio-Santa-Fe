@@ -1,7 +1,7 @@
 import { supabase } from './lib/supabase'
 import { DEPARTAMENTOS } from './config'
-import { fetchAllBaseData, fetchPracticaDetail, fetchSedeDetail, computeViewData, MODULO_LABELS } from './lib/data'
-import { getFilter, setFilter, clearFilter, onFilterChange } from './lib/state'
+import { fetchAllBaseData, fetchPracticaDetail, fetchSedeDetail, computeViewData, MODULO_LABELS, MODULOS } from './lib/data'
+import { getFilter, setFilter, clearFilter, onFilterChange, getUser, hasPermission } from './lib/state'
 import { renderKPICards } from './components/KPICards'
 import { renderMainChart } from './components/MainChart'
 import { renderPracticasChart, renderDerivantesChart } from './components/DetalleCharts'
@@ -102,7 +102,7 @@ export function renderDashboard(container, session) {
                                 id="page-header-user-dropdown"
                                 data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <img class="rounded-circle header-profile-user" src="/assets/images/users/avatar-1.jpg" alt="">
-                            <span class="d-none d-xl-inline-block ms-1 fw-medium">${session.user.email.split('@')[0]}</span>
+                            <span class="d-none d-xl-inline-block ms-1 fw-medium">${getUser()?.nombre || session.user.email.split('@')[0]}</span>
                             <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end shadow-sm">
@@ -143,7 +143,7 @@ export function renderDashboard(container, session) {
                                 </ul>` : ''}
                             </li>
                         `).join('')}
-                        ${['admin', 'coordinador_datos'].includes(session.user.app_metadata?.role) ? `
+                        ${(getUser()?.rol === 'admin' || hasPermission('Saneamiento')) ? `
                             <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Administración</li>
                             <li>
                                 <a href="javascript:void(0);" class="has-arrow waves-effect">
@@ -151,8 +151,8 @@ export function renderDashboard(container, session) {
                                     <span>Gestión Admin</span>
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
-                                    <li><a href="#admin" id="menu-saneamiento">Saneamiento de datos</a></li>
-                                    ${session.user.app_metadata?.role === 'admin' ? `<li><a href="#admin" id="menu-config-tecnica">Configuración técnica</a></li>` : ''}
+                                    ${(getUser()?.rol === 'admin' || hasPermission('Saneamiento')) ? `<li><a href="#admin" id="menu-saneamiento">Saneamiento de datos</a></li>` : ''}
+                                    ${getUser()?.rol === 'admin' ? `<li><a href="#admin-usuarios" id="menu-usuarios">Gestión de Usuarios</a></li>` : ''}
                                 </ul>
                             </li>` : ''}
                     </ul>
@@ -291,9 +291,12 @@ export function renderDashboard(container, session) {
     let anioComparacion = String(currentYear - 1);
 
     function getDateRange() {
+        const fromEl = document.getElementById('date-from');
+        const toEl = document.getElementById('date-to');
+        if (!fromEl || !toEl) return null;
         return {
-            dateFrom: document.getElementById('date-from').value,
-            dateTo: document.getElementById('date-to').value,
+            dateFrom: fromEl.value,
+            dateTo: toEl.value,
         };
     }
 
@@ -321,8 +324,11 @@ export function renderDashboard(container, session) {
     }
 
     function renderAll(baseData, filter) {
-        const { dateFrom, dateTo } = getDateRange();
-        const viewData = computeViewData(baseData, filter, dateFrom, dateTo, compararActivo, anioComparacion);
+        const range = getDateRange();
+        if (!range) return; // DOM desmontado, ignorar
+        const { dateFrom, dateTo } = range;
+        const permitidos = MODULOS.filter(mod => hasPermission(mod));
+        const viewData = computeViewData(baseData, filter, dateFrom, dateTo, compararActivo, anioComparacion, permitidos);
 
         updateFilterBadge(filter);
         renderKPICards(document.getElementById('kpi-container'), viewData.kpi, filter);
@@ -382,9 +388,9 @@ export function renderDashboard(container, session) {
             const trendSeries = [{ name: filter.label || filter.valor, data: sortedMes.map(r => r.total_estudios) }];
 
             // Recalcular KPIs
-            const MODULOS = ['Video', 'Tomo', 'Resonancia', 'Eco'];
+            const modulosPermitidos = ['Video', 'Tomo', 'Resonancia', 'Eco'].filter(m => hasPermission(m));
             const kpiPorModulo = {};
-            MODULOS.forEach(m => {
+            modulosPermitidos.forEach(m => {
                 kpiPorModulo[m] = detail.mes
                     .filter(r => r.modulo === m)
                     .reduce((s, r) => s + r.total_estudios, 0);
@@ -393,7 +399,7 @@ export function renderDashboard(container, session) {
 
             // Sparklines
             const sparklines = { Total: sortedMes.map(() => 0) };
-            MODULOS.forEach(mod => {
+            modulosPermitidos.forEach(mod => {
                 const byMonth = {};
                 detail.mes.filter(r => r.modulo === mod).forEach(r => {
                     byMonth[`${r.anio}-${String(r.mes).padStart(2, '0')}`] = r.total_estudios;
@@ -402,7 +408,7 @@ export function renderDashboard(container, session) {
                 sparklines[mod] = sortedKeys.map(k => byMonth[k] || 0);
             });
             sortedMes.forEach((_, i) => {
-                sparklines.Total[i] = MODULOS.reduce((s, m) => s + (sparklines[m][i] || 0), 0);
+                sparklines.Total[i] = modulosPermitidos.reduce((s, m) => s + (sparklines[m][i] || 0), 0);
             });
 
             renderKPICards(document.getElementById('kpi-container'), { total: kpiTotal, porModulo: kpiPorModulo, sparklines }, filter);
@@ -444,7 +450,9 @@ export function renderDashboard(container, session) {
     // fetchYearRange: computes [minAnio, maxAnio] to pass to fetchAllBaseData.
     // When comparison is active we extend the range down to cover the comparison year too.
     function fetchYearRange() {
-        const { dateFrom, dateTo } = getDateRange();
+        const range = getDateRange();
+        if (!range) return null;
+        const { dateFrom, dateTo } = range;
         const fromAnio = Number(dateFrom.split('-')[0]);
         const toAnio   = Number(dateTo.split('-')[0]);
         // If comparison is active, also cover the comparison year
@@ -454,6 +462,7 @@ export function renderDashboard(container, session) {
 
     async function loadBaseData() {
         const kpiContainer = document.getElementById('kpi-container');
+        if (!kpiContainer) return; // DOM desmontado
         try {
             kpiContainer.innerHTML = `
                 <div class="d-flex align-items-center justify-content-center py-5">
@@ -461,12 +470,15 @@ export function renderDashboard(container, session) {
                     <span class="text-muted">Cargando datos…</span>
                 </div>`;
 
-            const { minAnio, maxAnio } = fetchYearRange();
+            const yearRange = fetchYearRange();
+            if (!yearRange) return; // DOM desmontado
+            const { minAnio, maxAnio } = yearRange;
             cachedBaseData = await fetchAllBaseData(minAnio, maxAnio);
             renderAll(cachedBaseData, getFilter());
         } catch (error) {
             console.error('Error al cargar datos', error);
-            kpiContainer.innerHTML = `<div class="alert alert-danger">Error al cargar datos: ${error.message}</div>`;
+            const kpi2 = document.getElementById('kpi-container');
+            if (kpi2) kpi2.innerHTML = `<div class="alert alert-danger">Error al cargar datos: ${error.message}</div>`;
         }
     }
 

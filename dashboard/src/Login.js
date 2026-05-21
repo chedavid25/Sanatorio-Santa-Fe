@@ -1,7 +1,7 @@
 
-import { supabase } from './lib/supabase'
+import { supabase, getUserProfile } from './lib/supabase'
 
-export function renderLogin(container, onRecover) {
+export function renderLogin(container, onRecover, initialError = '') {
     container.className = "";
     
     container.innerHTML = `
@@ -142,6 +142,12 @@ export function renderLogin(container, onRecover) {
     const loginSpinner = document.getElementById('login-spinner')
     const recoverLink = document.getElementById('recover-pw-link')
 
+    // Mostrar error inicial si existe
+    if (initialError) {
+        loginError.textContent = initialError
+        loginError.classList.remove('d-none')
+    }
+
     passwordToggle.addEventListener('click', () => {
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password'
         passwordInput.setAttribute('type', type)
@@ -174,6 +180,19 @@ export function renderLogin(container, onRecover) {
             })
 
             if (error) throw error
+
+            // Validar perfil en la base de datos
+            const { data: profile, error: profileError } = await getUserProfile(data.user.id)
+
+            if (profileError || !profile) {
+                await supabase.auth.signOut()
+                throw new Error('Error de acceso. No se encontró un perfil asignado a esta cuenta.')
+            }
+
+            if (!profile.activo) {
+                await supabase.auth.signOut()
+                throw new Error('Tu cuenta está registrada pero aún no ha sido activada por el administrador.')
+            }
             
             window.location.reload()
         } catch (error) {

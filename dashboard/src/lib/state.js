@@ -1,5 +1,20 @@
 const _listeners = new Set();
 let _state = { tipo: null, valor: null, label: null };
+let _user = null; // Almacenará el perfil { email, rol, modulos_permitidos, activo, nombre }
+
+export function getUser() {
+    return _user ? { ..._user } : null;
+}
+
+export function setUser(user) {
+    _user = user ? { ...user } : null;
+}
+
+export function hasPermission(modulo) {
+    if (!_user) return false;
+    if (_user.rol === 'admin') return true; // El admin tiene acceso a todo
+    return Array.isArray(_user.modulos_permitidos) && _user.modulos_permitidos.includes(modulo);
+}
 
 export function getFilter() {
     return { ..._state };

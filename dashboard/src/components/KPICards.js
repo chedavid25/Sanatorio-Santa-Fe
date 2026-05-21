@@ -1,5 +1,5 @@
 import { MODULOS, MODULO_COLORS, MODULO_LABELS } from '../lib/data'
-import { setFilter, clearFilter } from '../lib/state'
+import { setFilter, clearFilter, hasPermission } from '../lib/state'
 
 let _renderGen = 0;
 
@@ -32,8 +32,14 @@ export function renderKPICards(container, kpi, filter) {
     const activePractica = filter?.tipo === 'practica';
     const comparing      = !!kpi.compararActivo;
 
+    const modulosPermitidos = MODULOS.filter(mod => hasPermission(mod));
+
+    // Determinar clase de grid dinámicamente según la cantidad de columnas (Total + módulos permitidos)
+    const colsCount = 1 + modulosPermitidos.length;
+    const gridClass = `row row-cols-1 row-cols-md-2 row-cols-xl-${Math.min(colsCount, 5)} g-3 mb-3`;
+
     container.innerHTML = `
-    <div class="row row-cols-1 row-cols-md-3 row-cols-xl-5 g-3 mb-3">
+    <div class="${gridClass}">
 
         <!-- Total -->
         <div class="col">
@@ -46,38 +52,42 @@ export function renderKPICards(container, kpi, filter) {
                     </h3>
                     ${comparing ? variationBadge(kpi.total, kpi.totalComp) : ''}
                     <div id="kpi-spark-total" class="mt-1"></div>
-                    <p class="mb-0 mt-1 font-size-11 text-muted">${comparing ? `todos los módulos` : 'todos los módulos'}</p>
+                    <p class="mb-0 mt-1 font-size-11 text-muted">todos los módulos</p>
                 </div>
             </div>
         </div>
 
-        ${MODULOS.map((mod, i) => `
-        <div class="col">
-            <div class="card card-h-100 mb-0 ${activeModulo === mod ? 'border-2' : ''}"
-                 style="cursor:pointer; ${activeModulo === mod ? `border-color:${MODULO_COLORS[i]} !important;` : ''}"
-                 data-modulo="${mod}">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-1">
-                        <span class="me-2"><i class="${MODULO_ICONS[mod] || 'bx bx-circle'} font-size-18"
-                              style="color:${MODULO_COLORS[i]}"></i></span>
-                        <p class="text-muted text-uppercase fw-semibold font-size-11 mb-0">${MODULO_LABELS[mod] || mod}</p>
+        ${modulosPermitidos.map(mod => {
+            const originalIdx = MODULOS.indexOf(mod);
+            const color = MODULO_COLORS[originalIdx] || '#ccc';
+            return `
+            <div class="col">
+                <div class="card card-h-100 mb-0 ${activeModulo === mod ? 'border-2' : ''}"
+                     style="cursor:pointer; ${activeModulo === mod ? `border-color:${color} !important;` : ''}"
+                     data-modulo="${mod}">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="me-2"><i class="${MODULO_ICONS[mod] || 'bx bx-circle'} font-size-18"
+                                  style="color:${color}"></i></span>
+                            <p class="text-muted text-uppercase fw-semibold font-size-11 mb-0">${MODULO_LABELS[mod] || mod}</p>
+                        </div>
+                        <h3 class="mb-0 fw-bold" style="color:${color}">
+                            ${(kpi.porModulo[mod] || 0).toLocaleString()}
+                        </h3>
+                        ${comparing ? variationBadge(kpi.porModulo[mod] || 0, kpi.porModuloComp?.[mod] || 0) : ''}
+                        <div id="kpi-spark-${mod.toLowerCase()}" class="mt-1"></div>
+                        <p class="mb-0 mt-1 font-size-11 text-muted">estudios en período</p>
                     </div>
-                    <h3 class="mb-0 fw-bold" style="color:${MODULO_COLORS[i]}">
-                        ${(kpi.porModulo[mod] || 0).toLocaleString()}
-                    </h3>
-                    ${comparing ? variationBadge(kpi.porModulo[mod] || 0, kpi.porModuloComp?.[mod] || 0) : ''}
-                    <div id="kpi-spark-${mod.toLowerCase()}" class="mt-1"></div>
-                    <p class="mb-0 mt-1 font-size-11 text-muted">estudios en período</p>
                 </div>
             </div>
-        </div>
-        `).join('')}
+            `;
+        }).join('')}
 
     </div>`;
 
     // ── Click handlers ────────────────────────────────────────────
     document.getElementById('kpi-card-total')?.addEventListener('click', () => clearFilter());
-    MODULOS.forEach(mod => {
+    modulosPermitidos.forEach(mod => {
         document.querySelector(`[data-modulo="${mod}"]`)?.addEventListener('click', () => {
             setFilter('modulo', mod, mod);
         });
@@ -89,8 +99,10 @@ export function renderKPICards(container, kpi, filter) {
     requestAnimationFrame(() => {
         if (gen !== _renderGen) return;
         renderSparkline('kpi-spark-total', kpi.sparklines.Total || [], '#004884');
-        MODULOS.forEach((mod, i) => {
-            renderSparkline(`kpi-spark-${mod.toLowerCase()}`, kpi.sparklines[mod] || [], MODULO_COLORS[i]);
+        modulosPermitidos.forEach(mod => {
+            const originalIdx = MODULOS.indexOf(mod);
+            const color = MODULO_COLORS[originalIdx] || '#ccc';
+            renderSparkline(`kpi-spark-${mod.toLowerCase()}`, kpi.sparklines[mod] || [], color);
         });
     });
 }

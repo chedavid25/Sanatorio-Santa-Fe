@@ -5,11 +5,7 @@ export const DEPARTAMENTOS = [
         nombre: 'Diagnóstico por Imágenes',
         icono: 'bx bx-scan',
         activo: true,
-        secciones: [
-            { id: 'cantidades', nombre: 'Cantidades' },
-            { id: 'obras_sociales', nombre: 'Por Obra Social' },
-            { id: 'intermediarias', nombre: 'Por Intermediaria' }
-        ],
+        secciones: [],
         vistas: {
             resumen_por_mes: 'gold_vw_di_resumen_por_mes',
             video_por_mes: 'gold_vw_di_video_por_mes',

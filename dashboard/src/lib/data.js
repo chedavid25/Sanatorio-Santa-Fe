@@ -134,7 +134,7 @@ export async function fetchSedeDetail(sede, fromAnio = null, toAnio = null) {
     };
 }
 
-export function computeViewData(baseData, filter, dateFrom, dateTo, compararActivo = false, anioComparacion = null) {
+export function computeViewData(baseData, filter, dateFrom, dateTo, compararActivo = false, anioComparacion = null, permitidos = MODULOS) {
     const [fromAnio, fromMes] = dateFrom.split('-').map(Number);
     const [toAnio, toMes] = dateTo.split('-').map(Number);
     const fromVal = fromAnio * 100 + fromMes;
@@ -142,7 +142,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     const resumenFiltrado = (baseData.resumen || []).filter(r => {
         const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal;
+        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo);
     });
 
     const moduloFiltro = filter.tipo === 'modulo' ? filter.valor : null;
@@ -159,7 +159,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     const resumenComparado = compararActivo
         ? (baseData.resumen || []).filter(r => {
             const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal;
+            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo);
           })
         : [];
 
@@ -207,7 +207,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     // ── KPI totals (current + comparison) ─────────────────────────
     const kpiPorModulo = {};
-    MODULOS.forEach(m => {
+    permitidos.forEach(m => {
         kpiPorModulo[m] = resumenFiltrado
             .filter(r => r.modulo === m)
             .reduce((s, r) => s + r.cantidad, 0);
@@ -217,7 +217,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     const kpiPorModuloComp = {};
     let kpiTotalComp = 0;
     if (compararActivo) {
-        MODULOS.forEach(m => {
+        permitidos.forEach(m => {
             kpiPorModuloComp[m] = resumenComparado
                 .filter(r => r.modulo === m)
                 .reduce((s, r) => s + r.cantidad, 0);
@@ -227,12 +227,12 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     // ── Sparklines ────────────────────────────────────────────────
     const sparklines = { Total: sortedMonths.map(() => 0) };
-    MODULOS.forEach(mod => {
+    permitidos.forEach(mod => {
         const byMonth = aggregateByMonth(resumenFiltrado.filter(r => r.modulo === mod));
         sparklines[mod] = sortedMonths.map(k => byMonth[k] || 0);
     });
     sortedMonths.forEach((_, i) => {
-        sparklines.Total[i] = MODULOS.reduce((s, m) => s + (sparklines[m][i] || 0), 0);
+        sparklines.Total[i] = permitidos.reduce((s, m) => s + (sparklines[m][i] || 0), 0);
     });
 
     // ── OS distribution ───────────────────────────────────────────
@@ -249,7 +249,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     } else {
         const osFiltrado = (baseData.os_por_mes || []).filter(r => {
             const v = r.anio * 100 + r.mes;
-            return v >= fromVal && v <= toVal && (!moduloFiltro || r.modulo === moduloFiltro);
+            return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
         });
         const osMap = {};
         osFiltrado.forEach(r => {
@@ -260,7 +260,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
         if (compararActivo) {
             (baseData.os_por_mes || []).filter(r => {
                 const v = r.anio * 100 + r.mes;
-                return v >= compFromVal && v <= compToVal && (!moduloFiltro || r.modulo === moduloFiltro);
+                return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
             }).forEach(r => {
                 if (r.os_nombre_limpio) osCompMap[r.os_nombre_limpio] = (osCompMap[r.os_nombre_limpio] || 0) + r.cantidad;
             });
@@ -270,7 +270,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     // ── INT distribution ──────────────────────────────────────────
     const intFiltrado = (baseData.int_por_mes || []).filter(r => {
         const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && (!moduloFiltro || r.modulo === moduloFiltro);
+        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
     });
     const intMap = {};
     intFiltrado.forEach(r => {
@@ -282,7 +282,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     if (compararActivo) {
         (baseData.int_por_mes || []).filter(r => {
             const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && (!moduloFiltro || r.modulo === moduloFiltro);
+            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
         }).forEach(r => {
             if (r.intermediaria_limpia) intCompMap[r.intermediaria_limpia] = (intCompMap[r.intermediaria_limpia] || 0) + r.cantidad;
         });
@@ -291,7 +291,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     // ── Sede distribution ──────────────────────────────────────────
     const sedeFiltrado = (baseData.resumen_sede || []).filter(r => {
         const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && (!moduloFiltro || r.modulo === moduloFiltro);
+        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
     });
     const sedeMap = {};
     sedeFiltrado.forEach(r => {
@@ -303,7 +303,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     if (compararActivo) {
         (baseData.resumen_sede || []).filter(r => {
             const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && (!moduloFiltro || r.modulo === moduloFiltro);
+            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
         }).forEach(r => {
             if (r.sede) sedeCompMap[r.sede] = (sedeCompMap[r.sede] || 0) + r.total_estudios;
         });
@@ -312,7 +312,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     // ── Top Prácticas ─────────────────────────────────────────────
     const practicasFiltradas = (baseData.practicas_por_mes || []).filter(r => {
         const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && (!moduloFiltro || r.modulo === moduloFiltro);
+        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
     });
     const practicasMap = {};
     practicasFiltradas.forEach(r => {
@@ -331,7 +331,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     if (compararActivo) {
         (baseData.practicas_por_mes || []).filter(r => {
             const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && (!moduloFiltro || r.modulo === moduloFiltro);
+            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
         }).forEach(r => {
             if (r.codigo_practica) practicasCompMap[r.codigo_practica] = (practicasCompMap[r.codigo_practica] || 0) + r.total_estudios;
         });
@@ -340,7 +340,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     // ── Top Derivantes ────────────────────────────────────────────
     const derivantesFiltrados = (baseData.derivantes_por_mes || []).filter(r => {
         const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && (!moduloFiltro || r.modulo === moduloFiltro);
+        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
     });
     const derivantesMap = {};
     derivantesFiltrados.forEach(r => {
@@ -356,7 +356,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     if (compararActivo) {
         (baseData.derivantes_por_mes || []).filter(r => {
             const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && (!moduloFiltro || r.modulo === moduloFiltro);
+            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
         }).forEach(r => {
             if (r.nombre_solicitante) derivantesCompMap[r.nombre_solicitante] = (derivantesCompMap[r.nombre_solicitante] || 0) + r.cantidad;
         });

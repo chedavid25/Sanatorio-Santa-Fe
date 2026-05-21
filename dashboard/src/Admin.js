@@ -1,6 +1,7 @@
 
 import { supabase } from './lib/supabase'
 import { DEPARTAMENTOS } from './config'
+import { getUser, hasPermission } from './lib/state'
 
 let currentData = { codigos: [], os: [], int: [], sedes: [] };
 let masterNames = [];
@@ -9,9 +10,44 @@ let activeTab = 'codigos';
 let selectedIds = new Set();
 let choicesInstances = []; // Para limpiar instancias de Choices.js
 
-export async function renderAdmin(container, session) {
-    const role = session.user.app_metadata?.role;
-    
+let activeAdminSection = 'saneamiento'; // 'saneamiento' o 'usuarios'
+let usersList = [];
+
+// Función de navegación interna expuesta al enrutador (main.js)
+function adminNavigateTo(section) {
+    activeAdminSection = section;
+    const secSaneamiento = document.getElementById('section-saneamiento');
+    const secUsuarios = document.getElementById('section-usuarios');
+    const btnSaneamiento = document.getElementById('sidebar-saneamiento-btn');
+    const btnUsuarios = document.getElementById('sidebar-usuarios-btn');
+    const liSaneamiento = document.getElementById('sidebar-saneamiento-li');
+    const liUsuarios = document.getElementById('sidebar-usuarios-li');
+
+    if (section === 'usuarios') {
+        secSaneamiento?.classList.add('d-none');
+        secUsuarios?.classList.remove('d-none');
+        liSaneamiento?.classList.remove('mm-active');
+        btnSaneamiento?.classList.remove('active');
+        liUsuarios?.classList.add('mm-active');
+        btnUsuarios?.classList.add('active');
+        loadUsers();
+    } else {
+        secSaneamiento?.classList.remove('d-none');
+        secUsuarios?.classList.add('d-none');
+        liSaneamiento?.classList.add('mm-active');
+        btnSaneamiento?.classList.add('active');
+        liUsuarios?.classList.remove('mm-active');
+        btnUsuarios?.classList.remove('active');
+    }
+}
+
+export async function renderAdmin(container, session, initialSection = 'saneamiento') {
+    activeAdminSection = initialSection;
+    window.__adminNavigateTo = adminNavigateTo;
+    const userProfile = getUser();
+    const isAdmin = userProfile?.rol === 'admin';
+    const canSaneamiento = isAdmin || hasPermission('Saneamiento');
+
     // Carga inicial
     await loadMasterNames();
     
@@ -49,7 +85,7 @@ export async function renderAdmin(container, session) {
                 <div class="d-flex">
                     <div class="dropdown d-inline-block">
                         <button type="button" class="btn header-item bg-light-subtle border-start" data-bs-toggle="dropdown">
-                            <span class="d-none d-xl-inline-block ms-1 fw-medium">${session.user.email}</span>
+                            <span class="d-none d-xl-inline-block ms-1 fw-medium">${userProfile?.nombre || session.user.email}</span>
                             <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end shadow-sm">
@@ -62,17 +98,28 @@ export async function renderAdmin(container, session) {
             </div>
         </header>
 
-        <div class="vertical-menu">
+        <div class="vertical-menu" style="background:var(--ssf-bg-sidebar) !important;">
             <div data-simplebar class="h-100">
                 <div id="sidebar-menu">
                     <ul class="metismenu list-unstyled" id="side-menu">
                         <li><a href="/" class="waves-effect"><i class="bx bx-arrow-back"></i><span>Volver al Dashboard</span></a></li>
-                        <li class="mm-active">
-                            <a href="javascript: void(0);" class="has-arrow waves-effect"><i class="bx bx-shield-quarter"></i><span>Gestión Admin</span></a>
-                            <ul class="sub-menu" aria-expanded="true">
-                                <li class="mm-active"><a href="#" id="admin-saneamiento">Saneamiento de datos</a></li>
-                            </ul>
-                        </li>
+                        <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Administración</li>
+                        
+                        ${canSaneamiento ? `
+                        <li class="${activeAdminSection === 'saneamiento' ? 'mm-active' : ''}" id="sidebar-saneamiento-li">
+                            <a href="javascript:void(0);" id="sidebar-saneamiento-btn" class="waves-effect ${activeAdminSection === 'saneamiento' ? 'active' : ''}">
+                                <i class="bx bx-brush"></i>
+                                <span>Saneamiento de datos</span>
+                            </a>
+                        </li>` : ''}
+                        
+                        ${isAdmin ? `
+                        <li class="${activeAdminSection === 'usuarios' ? 'mm-active' : ''}" id="sidebar-usuarios-li">
+                            <a href="javascript:void(0);" id="sidebar-usuarios-btn" class="waves-effect ${activeAdminSection === 'usuarios' ? 'active' : ''}">
+                                <i class="bx bx-user-pin"></i>
+                                <span>Gestión de Usuarios</span>
+                            </a>
+                        </li>` : ''}
                     </ul>
                 </div>
             </div>
@@ -81,70 +128,220 @@ export async function renderAdmin(container, session) {
         <div class="main-content">
             <div class="page-content">
                 <div class="container-fluid">
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                                <h4 class="mb-sm-0 font-size-18">🗂️ Saneamiento de datos</h4>
+                    
+                    <!-- SECCIÓN: SANEAMIENTO -->
+                    <div id="section-saneamiento" class="${activeAdminSection === 'saneamiento' ? '' : 'd-none'}">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                    <h4 class="mb-sm-0 font-size-18">🗂️ Saneamiento de datos</h4>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="card shadow-sm">
-                                <div class="card-body">
-                                    <!-- Toolbar -->
-                                    <div class="row mb-4 align-items-end">
-                                        <div class="col-md-3">
-                                            <label class="form-label">Departamento</label>
-                                            <select class="form-select" id="filter-dept"><option value="DI">Diagnóstico por Imágenes</option></select>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Buscador global</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text"><i class="bx bx-search"></i></span>
-                                                <input type="text" class="form-control" id="search-input" placeholder="Buscar por código o nombre...">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-body">
+                                        <!-- Toolbar -->
+                                        <div class="row mb-4 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Departamento</label>
+                                                <select class="form-select" id="filter-dept"><option value="DI">Diagnóstico por Imágenes</option></select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Buscador global</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                                                    <input type="text" class="form-control" id="search-input" placeholder="Buscar por código o nombre...">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 text-end">
+                                                <button class="btn btn-primary" onclick="window.showMasterNamesModal()">
+                                                    <i class="bx bx-list-ul"></i> Gestionar Nombres Unificados
+                                                </button>
                                             </div>
                                         </div>
-                                        <div class="col-md-6 text-end">
-                                            <button class="btn btn-primary" onclick="window.showMasterNamesModal()">
-                                                <i class="bx bx-list-ul"></i> Gestionar Nombres Unificados
-                                            </button>
-                                        </div>
-                                    </div>
 
-                                    <!-- Acciones Masivas -->
-                                    <div id="bulk-actions-bar" class="alert alert-info d-none mb-3 d-flex justify-content-between align-items-center" style="overflow: visible;">
-                                        <div><strong id="selected-count">0</strong> seleccionados</div>
-                                        <div class="d-flex gap-2 align-items-center">
-                                            <div style="width: 300px;">
-                                                <select id="bulk-unified-name" class="form-select form-select-sm">
-                                                    <option value="">Asignar nombre unificado...</option>
-                                                    ${masterNames.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('')}
-                                                </select>
+                                        <!-- Acciones Masivas -->
+                                        <div id="bulk-actions-bar" class="alert alert-info d-none mb-3 d-flex justify-content-between align-items-center" style="overflow: visible;">
+                                            <div><strong id="selected-count">0</strong> seleccionados</div>
+                                            <div class="d-flex gap-2 align-items-center">
+                                                <div style="width: 300px;">
+                                                    <select id="bulk-unified-name" class="form-select form-select-sm">
+                                                        <option value="">Asignar nombre unificado...</option>
+                                                        ${masterNames.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('')}
+                                                    </select>
+                                                </div>
+                                                <button class="btn btn-sm btn-success" onclick="window.applyBulkUpdate()">Aplicar masivamente</button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="window.clearSelection()">Cancelar</button>
                                             </div>
-                                            <button class="btn btn-sm btn-success" onclick="window.applyBulkUpdate()">Aplicar masivamente</button>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="window.clearSelection()">Cancelar</button>
                                         </div>
-                                    </div>
 
-                                    <ul class="nav nav-tabs nav-tabs-custom nav-success nav-justified" role="tablist">
-                                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-codigos" id="nav-codigos">Códigos de estudio</a></li>
-                                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-os" id="nav-os">Obras sociales</a></li>
-                                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-int" id="nav-int">Intermediarias</a></li>
-                                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sedes" id="nav-sedes">Sedes</a></li>
-                                    </ul>
+                                        <ul class="nav nav-tabs nav-tabs-custom nav-success nav-justified" role="tablist">
+                                            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-codigos" id="nav-codigos">Códigos de estudio</a></li>
+                                            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-os" id="nav-os">Obras sociales</a></li>
+                                            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-int" id="nav-int">Intermediarias</a></li>
+                                            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sedes" id="nav-sedes">Sedes</a></li>
+                                        </ul>
 
-                                    <div class="tab-content p-3 text-muted">
-                                        <div class="tab-pane active" id="tab-codigos"><div id="admin-codigos-content"></div></div>
-                                        <div class="tab-pane" id="tab-os"><div id="admin-os-content"></div></div>
-                                        <div class="tab-pane" id="tab-int"><div id="admin-int-content"></div></div>
-                                        <div class="tab-pane" id="tab-sedes"><div id="admin-sedes-content"></div></div>
+                                        <div class="tab-content p-3 text-muted">
+                                            <div class="tab-pane active" id="tab-codigos"><div id="admin-codigos-content"></div></div>
+                                            <div class="tab-pane" id="tab-os"><div id="admin-os-content"></div></div>
+                                            <div class="tab-pane" id="tab-int"><div id="admin-int-content"></div></div>
+                                            <div class="tab-pane" id="tab-sedes"><div id="admin-sedes-content"></div></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- SECCIÓN: GESTIÓN DE USUARIOS -->
+                    <div id="section-usuarios" class="${activeAdminSection === 'usuarios' ? '' : 'd-none'}">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h4 class="mb-0 font-size-18">👥 Gestión de Usuarios</h4>
+                                        <button type="button"
+                                                class="btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center"
+                                                id="roles-help-btn"
+                                                title="Ver descripción de roles"
+                                                style="width:28px; height:28px; border:1.5px solid #cdd3d8;">
+                                            <i class="bx bx-help-circle font-size-16 text-muted"></i>
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-success waves-effect waves-light" onclick="window.showCreateUserModal()">
+                                            <i class="bx bx-user-plus me-1"></i> Nuevo Usuario
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                                                    <input type="text" class="form-control" id="search-users-input" placeholder="Buscar por nombre o correo...">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="users-table-container">
+                                            <!-- Se renderiza vía JS -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal ayuda de roles -->
+                    <div class="modal fade" id="rolesHelpModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content border-0 shadow-lg">
+                                <div class="modal-header" style="background: linear-gradient(135deg, #004884 0%, #0072bc 100%);">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bx bx-shield-quarter font-size-22 text-white"></i>
+                                        <h5 class="modal-title text-white mb-0">Descripción de Roles del Sistema</h5>
+                                    </div>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body p-4">
+
+                                    <!-- Administrador -->
+                                    <div class="card border-0 mb-3" style="background: #f0f5ff; border-left: 4px solid #004884 !important; border-radius: 10px;">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-start gap-3">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                     style="width:42px; height:42px; background:#004884;">
+                                                    <i class="bx bx-crown font-size-20 text-white"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="fw-bold mb-1" style="color:#004884;">Administrador</h6>
+                                                    <p class="text-muted mb-2 font-size-13">Acceso completo a todas las funcionalidades del sistema.</p>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <span class="badge bg-primary rounded-pill"><i class="bx bx-check me-1"></i>Videoendoscopía</span>
+                                                        <span class="badge bg-primary rounded-pill"><i class="bx bx-check me-1"></i>Tomografía</span>
+                                                        <span class="badge bg-primary rounded-pill"><i class="bx bx-check me-1"></i>Resonancia</span>
+                                                        <span class="badge bg-primary rounded-pill"><i class="bx bx-check me-1"></i>Ecografía</span>
+                                                        <span class="badge bg-primary rounded-pill"><i class="bx bx-check me-1"></i>Saneamiento de datos</span>
+                                                        <span class="badge bg-primary rounded-pill"><i class="bx bx-check me-1"></i>Gestión de Usuarios</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Coordinador de Datos -->
+                                    <div class="card border-0 mb-3" style="background: #f0faf5; border-left: 4px solid #198754 !important; border-radius: 10px;">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-start gap-3">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                     style="width:42px; height:42px; background:#198754;">
+                                                    <i class="bx bx-data font-size-20 text-white"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="fw-bold mb-1" style="color:#198754;">Coordinador de Datos</h6>
+                                                    <p class="text-muted mb-2 font-size-13">Puede visualizar estadísticas de los módulos habilitados y acceder al panel de saneamiento de datos.</p>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <span class="badge rounded-pill" style="background:#198754;"><i class="bx bx-check me-1"></i>Módulos asignados</span>
+                                                        <span class="badge rounded-pill" style="background:#198754;"><i class="bx bx-check me-1"></i>Saneamiento de datos</span>
+                                                        <span class="badge bg-secondary rounded-pill"><i class="bx bx-x me-1"></i>Gestión de Usuarios</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Visualizador General -->
+                                    <div class="card border-0 mb-3" style="background: #fffbf0; border-left: 4px solid #fd7e14 !important; border-radius: 10px;">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-start gap-3">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                     style="width:42px; height:42px; background:#fd7e14;">
+                                                    <i class="bx bx-bar-chart-alt-2 font-size-20 text-white"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="fw-bold mb-1" style="color:#fd7e14;">Visualizador General</h6>
+                                                    <p class="text-muted mb-2 font-size-13">Solo puede ver el dashboard con los módulos que le fueron habilitados. No tiene acceso a ningún panel de administración.</p>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <span class="badge rounded-pill" style="background:#fd7e14;"><i class="bx bx-check me-1"></i>Módulos asignados</span>
+                                                        <span class="badge bg-secondary rounded-pill"><i class="bx bx-x me-1"></i>Saneamiento de datos</span>
+                                                        <span class="badge bg-secondary rounded-pill"><i class="bx bx-x me-1"></i>Gestión de Usuarios</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Nota sobre módulos -->
+                                    <div class="alert alert-light border d-flex gap-2 align-items-start mb-0" style="border-radius: 10px;">
+                                        <i class="bx bx-info-circle font-size-18 text-primary mt-1 flex-shrink-0"></i>
+                                        <div class="font-size-13">
+                                            <strong>¿Cómo funcionan los módulos?</strong><br>
+                                            Los módulos disponibles son: <strong>Videoendoscopía, Tomografía, Resonancia y Ecografía</strong>.
+                                            Podés tildar o destildar cada uno directamente desde la tabla de usuarios para controlar qué secciones del dashboard puede ver cada persona.
+                                            Los usuarios con rol <strong>Administrador</strong> tienen acceso a todos los módulos de forma automática y sus casillas no son editables.
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="modal-footer border-0 pt-0">
+                                    <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Entendido</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
         </div>
@@ -173,17 +370,96 @@ export async function renderAdmin(container, session) {
             </div>
         </div>
     </div>
+
+    <!-- Modal Nuevo Usuario -->
+    <div class="modal fade" id="createUserModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Nuevo Usuario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="create-user-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre Completo</label>
+                            <input type="text" id="new-user-name" class="form-control" placeholder="Ej. Juan Pérez" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Correo Electrónico</label>
+                            <input type="email" id="new-user-email" class="form-control" placeholder="juan.perez@sanatoriosantafe.com.ar" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña Temporal</label>
+                            <input type="password" id="new-user-password" class="form-control" placeholder="Min. 6 caracteres" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rol del Usuario</label>
+                            <select id="new-user-role" class="form-select">
+                                <option value="visualizador_general">Visualizador General</option>
+                                <option value="coordinador_datos">Coordinador de Datos</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                        </div>
+                        <div id="create-user-error" class="alert alert-danger d-none" role="alert"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success" id="btn-save-new-user">
+                            <span class="spinner-border spinner-border-sm d-none me-2" id="new-user-spinner" role="status" aria-hidden="true"></span>
+                            Crear Usuario
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     `;
 
     updateMasterDatalist();
 
     if (window.jQuery) {
         window.jQuery('#side-menu').metisMenu();
+        
         document.getElementById('vertical-menu-btn')?.addEventListener('click', (e) => {
             e.preventDefault();
             document.body.classList.toggle('sidebar-enable');
         });
-        document.getElementById('logout-btn')?.addEventListener('click', async () => { await supabase.auth.signOut(); window.location.reload(); });
+        
+        document.getElementById('logout-btn')?.addEventListener('click', async () => { 
+            await supabase.auth.signOut(); 
+            window.location.reload(); 
+        });
+
+        // Eventos de navegación lateral
+        document.getElementById('sidebar-saneamiento-btn')?.addEventListener('click', () => {
+            activeAdminSection = 'saneamiento';
+            document.getElementById('section-saneamiento').classList.remove('d-none');
+            document.getElementById('section-usuarios').classList.add('d-none');
+            
+            document.getElementById('sidebar-saneamiento-li').classList.add('mm-active');
+            document.getElementById('sidebar-saneamiento-btn').classList.add('active');
+            document.getElementById('sidebar-usuarios-li')?.classList.remove('mm-active');
+            document.getElementById('sidebar-usuarios-btn')?.classList.remove('active');
+        });
+
+        document.getElementById('sidebar-usuarios-btn')?.addEventListener('click', () => {
+            activeAdminSection = 'usuarios';
+            document.getElementById('section-saneamiento').classList.add('d-none');
+            document.getElementById('section-usuarios').classList.remove('d-none');
+            
+            document.getElementById('sidebar-saneamiento-li').classList.remove('mm-active');
+            document.getElementById('sidebar-saneamiento-btn').classList.remove('active');
+            document.getElementById('sidebar-usuarios-li').classList.add('mm-active');
+            document.getElementById('sidebar-usuarios-btn').classList.add('active');
+            
+            loadUsers();
+        });
+
+        document.getElementById('roles-help-btn')?.addEventListener('click', () => {
+            const modal = new bootstrap.Modal(document.getElementById('rolesHelpModal'));
+            modal.show();
+        });
 
         document.getElementById('nav-codigos')?.addEventListener('click', () => { activeTab = 'codigos'; window.clearSelection(); loadCodigosNomenclador(); });
         document.getElementById('nav-os')?.addEventListener('click', () => { activeTab = 'os'; window.clearSelection(); loadOS(); });
@@ -191,9 +467,74 @@ export async function renderAdmin(container, session) {
         document.getElementById('nav-sedes')?.addEventListener('click', () => { activeTab = 'sedes'; window.clearSelection(); loadSedes(); });
 
         document.getElementById('search-input')?.addEventListener('input', (e) => filterData(e.target.value));
+
+        // Evento búsqueda de usuarios
+        document.getElementById('search-users-input')?.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            const filtered = usersList.filter(u => 
+                u.email.toLowerCase().includes(q) || 
+                (u.nombre && u.nombre.toLowerCase().includes(q))
+            );
+            renderUsersTable(document.getElementById('users-table-container'), filtered);
+        });
+
+        // Submit del formulario de creación de usuario
+        const createForm = document.getElementById('create-user-form');
+        if (createForm) {
+            createForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('new-user-name').value.trim();
+                const email = document.getElementById('new-user-email').value.trim();
+                const password = document.getElementById('new-user-password').value;
+                const role = document.getElementById('new-user-role').value;
+                
+                const errorDiv = document.getElementById('create-user-error');
+                const spinner = document.getElementById('new-user-spinner');
+                const btn = document.getElementById('btn-save-new-user');
+                
+                errorDiv.classList.add('d-none');
+                spinner.classList.remove('d-none');
+                btn.disabled = true;
+                
+                try {
+                    // Módulos por defecto según rol
+                    const modulos = role === 'admin' 
+                        ? ['Video', 'Tomo', 'Resonancia', 'Eco', 'Saneamiento'] 
+                        : ['Eco']; // Inicialización simple
+
+                    const { data, error } = await supabase.rpc('admin_crear_usuario', {
+                        p_email: email,
+                        p_password: password,
+                        p_nombre: name,
+                        p_rol: role,
+                        p_modulos: modulos
+                    });
+                    
+                    if (error) throw error;
+                    
+                    // Cerrar modal
+                    const modalEl = document.getElementById('createUserModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                    
+                    createForm.reset();
+                    loadUsers();
+                } catch (err) {
+                    errorDiv.textContent = err.message;
+                    errorDiv.classList.remove('d-none');
+                } finally {
+                    spinner.classList.add('d-none');
+                    btn.disabled = false;
+                }
+            });
+        }
     }
 
-    await loadCodigosNomenclador();
+    if (initialSection === 'usuarios') {
+        loadUsers();
+    } else {
+        await loadCodigosNomenclador();
+    }
 }
 
 function initTableChoices() {
@@ -462,3 +803,219 @@ window.updateNombreUnificado = async (codigo, value) => {
 window.updateOSCompleto = async (nombre_crudo, value) => { await supabase.schema('silver_shared').from('silver_os_equivalencias').update({ os_nombre_limpio: value }).eq('os_nombre_crudo', nombre_crudo); };
 window.updateIntLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').update({ intermediaria_limpia: value }).eq('id', id); };
 window.updateSedeLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_sedes_equivalencias').update({ sede: value }).eq('id', id); };
+
+// --- FUNCIONES GESTIÓN DE USUARIOS ---
+async function loadUsers() {
+    const container = document.getElementById('users-table-container');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
+    
+    const { data, error } = await supabase
+        .schema('public')
+        .from('perfiles_usuario')
+        .select('*')
+        .order('email');
+    
+    if (error) {
+        container.innerHTML = `<div class="alert alert-danger">Error al cargar usuarios: ${error.message}</div>`;
+        return;
+    }
+    
+    usersList = data || [];
+    renderUsersTable(container, usersList);
+}
+
+function renderUsersTable(container, users) {
+    if (!container) return;
+    if (users.length === 0) {
+        container.innerHTML = '<div class="text-center p-4 text-muted">No se encontraron usuarios.</div>';
+        return;
+    }
+    
+    container.innerHTML = `
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th class="text-center">Video</th>
+                    <th class="text-center">Tomo</th>
+                    <th class="text-center">Resonancia</th>
+                    <th class="text-center">Eco</th>
+                    <th class="text-center">Saneamiento</th>
+                    <th class="text-center">Activo</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${users.map(u => {
+                    const modPerm = u.modulos_permitidos || [];
+                    const isAdmin = u.rol === 'admin';
+                    return `
+                    <tr>
+                        <td><strong>${u.nombre || 'Sin nombre'}</strong></td>
+                        <td><code>${u.email}</code></td>
+                        <td>
+                            <select class="form-select form-select-sm" onchange="window.updateUserRole('${u.id}', this.value)" style="width: 170px;">
+                                <option value="visualizador_general" ${u.rol === 'visualizador_general' ? 'selected' : ''}>Visualizador General</option>
+                                <option value="coordinador_datos" ${u.rol === 'coordinador_datos' ? 'selected' : ''}>Coordinador de Datos</option>
+                                <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
+                            </select>
+                        </td>
+                        <td class="text-center">
+                            <input class="form-check-input permission-chk" type="checkbox" data-user-id="${u.id}" data-permission="Video" ${isAdmin || modPerm.includes('Video') ? 'checked' : ''} ${isAdmin ? 'disabled' : ''} onchange="window.toggleUserPermission('${u.id}', 'Video', this.checked)">
+                        </td>
+                        <td class="text-center">
+                            <input class="form-check-input permission-chk" type="checkbox" data-user-id="${u.id}" data-permission="Tomo" ${isAdmin || modPerm.includes('Tomo') ? 'checked' : ''} ${isAdmin ? 'disabled' : ''} onchange="window.toggleUserPermission('${u.id}', 'Tomo', this.checked)">
+                        </td>
+                        <td class="text-center">
+                            <input class="form-check-input permission-chk" type="checkbox" data-user-id="${u.id}" data-permission="Resonancia" ${isAdmin || modPerm.includes('Resonancia') ? 'checked' : ''} ${isAdmin ? 'disabled' : ''} onchange="window.toggleUserPermission('${u.id}', 'Resonancia', this.checked)">
+                        </td>
+                        <td class="text-center">
+                            <input class="form-check-input permission-chk" type="checkbox" data-user-id="${u.id}" data-permission="Eco" ${isAdmin || modPerm.includes('Eco') ? 'checked' : ''} ${isAdmin ? 'disabled' : ''} onchange="window.toggleUserPermission('${u.id}', 'Eco', this.checked)">
+                        </td>
+                        <td class="text-center">
+                            <input class="form-check-input permission-chk" type="checkbox" data-user-id="${u.id}" data-permission="Saneamiento" ${isAdmin || modPerm.includes('Saneamiento') ? 'checked' : ''} ${isAdmin ? 'disabled' : ''} onchange="window.toggleUserPermission('${u.id}', 'Saneamiento', this.checked)">
+                        </td>
+                        <td class="text-center">
+                            <div class="form-check form-switch d-inline-block">
+                                <input class="form-check-input" type="checkbox" ${u.activo ? 'checked' : ''} onchange="window.toggleUserActive('${u.id}', this.checked)" style="cursor: pointer;">
+                            </div>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <button class="btn btn-sm btn-outline-info" title="Forzar Cierre de Sesión" onclick="window.forceLogoutUser('${u.user_id}', '${u.email}')">
+                                    <i class="bx bx-log-out"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" title="Cambiar Contraseña" onclick="window.changeUserPasswordModal('${u.user_id}', '${u.email}')">
+                                    <i class="bx bx-key"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" title="Eliminar Usuario" onclick="window.deleteUser('${u.user_id}', '${u.email}')">
+                                    <i class="bx bx-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>
+    `;
+}
+
+window.showCreateUserModal = () => {
+    const errorDiv = document.getElementById('create-user-error');
+    if (errorDiv) errorDiv.classList.add('d-none');
+    const modal = new bootstrap.Modal(document.getElementById('createUserModal'));
+    modal.show();
+};
+
+window.updateUserRole = async (userId, role) => {
+    const { error } = await supabase
+        .schema('public')
+        .from('perfiles_usuario')
+        .update({ rol: role })
+        .eq('id', userId);
+    
+    if (error) {
+        alert('Error al cambiar el rol: ' + error.message);
+    }
+    loadUsers(); // Recargar para actualizar los checkboxes deshabilitados
+};
+
+window.toggleUserPermission = async (userId, permission, checked) => {
+    const user = usersList.find(u => u.id === userId);
+    if (!user) return;
+    
+    let perms = [...(user.modulos_permitidos || [])];
+    if (checked) {
+        if (!perms.includes(permission)) perms.push(permission);
+    } else {
+        perms = perms.filter(p => p !== permission);
+    }
+    
+    const { error } = await supabase
+        .schema('public')
+        .from('perfiles_usuario')
+        .update({ modulos_permitidos: perms })
+        .eq('id', userId);
+        
+    if (error) {
+        alert('Error al actualizar permisos: ' + error.message);
+        loadUsers();
+    } else {
+        user.modulos_permitidos = perms;
+    }
+};
+
+window.toggleUserActive = async (userId, active) => {
+    const { error } = await supabase
+        .schema('public')
+        .from('perfiles_usuario')
+        .update({ activo: active })
+        .eq('id', userId);
+        
+    if (error) {
+        alert('Error al cambiar estado activo: ' + error.message);
+        loadUsers();
+    } else {
+        const user = usersList.find(u => u.id === userId);
+        if (user) user.activo = active;
+    }
+};
+
+window.changeUserPasswordModal = async (userId, email) => {
+    const newPass = prompt(`Introduce la nueva contraseña para ${email} (mínimo 6 caracteres):`);
+    if (newPass === null) return;
+    if (newPass.trim().length < 6) {
+        alert('La contraseña debe tener al menos 6 caracteres.');
+        return;
+    }
+    
+    const { error } = await supabase.rpc('admin_cambiar_password', {
+        p_user_id: userId,
+        p_new_password: newPass.trim()
+    });
+    
+    if (error) {
+        alert('Error al cambiar contraseña: ' + error.message);
+    } else {
+        alert('Contraseña actualizada con éxito.');
+    }
+};
+
+window.deleteUser = async (userId, email) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente al usuario ${email}? Esta acción no se puede deshacer.`)) {
+        return;
+    }
+    
+    const { error } = await supabase.rpc('admin_eliminar_usuario', {
+        p_user_id: userId
+    });
+    
+    if (error) {
+        alert('Error al eliminar usuario: ' + error.message);
+    } else {
+        alert('Usuario eliminado con éxito.');
+        loadUsers();
+    }
+};
+
+window.forceLogoutUser = async (userId, email) => {
+    if (!confirm(`¿Estás seguro de que deseas forzar el cierre de sesión de ${email}? El usuario deberá volver a iniciar sesión para que se apliquen sus nuevos permisos en el token.`)) {
+        return;
+    }
+    
+    const { error } = await supabase.rpc('admin_forzar_logout', {
+        p_user_id: userId
+    });
+    
+    if (error) {
+        alert('Error al forzar el cierre de sesión: ' + error.message);
+    } else {
+        alert('Cierre de sesión forzado con éxito para ' + email + '.');
+    }
+};
