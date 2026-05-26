@@ -80,7 +80,7 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT DISTINCT d.nombre_solicitante::TEXT
-    FROM diagnostico_imagenes.silver_detalle_di d
+    FROM diagnostico_imagenes.bronze_detalle_di d
     WHERE d.nombre_solicitante IS NOT NULL AND d.nombre_solicitante <> ''
     ORDER BY d.nombre_solicitante::TEXT;
 END;
