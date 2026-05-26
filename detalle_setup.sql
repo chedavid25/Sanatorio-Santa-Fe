@@ -83,13 +83,17 @@ SELECT
     -- Normalizados
     COALESCE(s.servicio_limpio,      TRIM(b.servicio))         AS servicio_limpio,
     s.sede,
-    COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria))    AS intermediaria_limpia
+    COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria))    AS intermediaria_limpia,
+    COALESCE(dev.nombre_unificado,   TRIM(b.nombre_solicitante)) AS nombre_solicitante_limpio,
+    dev.servicio_unificado                                     AS derivante_servicio_unificado
 
 FROM diagnostico_imagenes.bronze_detalle_di b
 LEFT JOIN silver_shared.silver_sedes_equivalencias s
     ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
 LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
-    ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda));
+    ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
+LEFT JOIN silver_shared.silver_derivantes_equivalencias dev
+    ON TRIM(UPPER(b.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original));
 
 GRANT SELECT ON diagnostico_imagenes.silver_detalle_di TO anon, service_role;
 

@@ -29,10 +29,11 @@ const COMP_STYLES = {
     },
 };
 
-export function renderDistributionCharts(os, int, sede) {
+export function renderDistributionCharts(os, int, sede, area) {
     renderOSChart(os);
     renderIntChart(int);
     renderSedeChart(sede);
+    renderAreaChart(area);
 }
 
 function renderOSChart(os) {
@@ -325,6 +326,117 @@ function renderSedeChart(sede) {
         },
         labels: sede.labels,
         colors: BLUES.slice(0, sede.labels.length),
+        legend: {
+            position: 'bottom',
+            fontSize: '12px',
+            fontFamily: 'Outfit, sans-serif',
+            labels: { colors: '#555' },
+            formatter: (label, opts) => {
+                const val = opts.w.globals.series[opts.seriesIndex];
+                return `${label}: <b>${val.toLocaleString()}</b>`;
+            },
+            itemMargin: { horizontal: 6, vertical: 3 },
+        },
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '68%',
+                    labels: {
+                        show: true,
+                        name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
+                        value: {
+                            show: true,
+                            fontSize: '18px',
+                            fontFamily: 'Outfit, sans-serif',
+                            fontWeight: '700',
+                            color: '#004884',
+                            formatter: val => Number(val).toLocaleString(),
+                        },
+                        total: {
+                            show: true,
+                            showAlways: true,
+                            label: 'Total',
+                            fontSize: '13px',
+                            fontFamily: 'Outfit, sans-serif',
+                            color: '#858d98',
+                            formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                        },
+                    },
+                },
+            },
+        },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 2, colors: ['#fff'] },
+        tooltip: {
+            theme: 'light',
+            y: { formatter: val => val.toLocaleString() + ' estudios' },
+        },
+    };
+
+    container.innerHTML = '';
+    new ApexCharts(container, options).render();
+}
+
+function renderAreaChart(area) {
+    const container = document.getElementById('area-distribution-chart');
+    if (!container) return;
+
+    if (!area || !area.labels || !area.labels.length || (!area.data[0] && !area.data[1])) {
+        container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de áreas.</p>';
+        return;
+    }
+
+    const AREA_COLORS = ['#0072bc', '#ef9f27'];
+
+    // Comparison mode: grouped horizontal bars
+    if (area.dataComp) {
+        const options = {
+            series: [
+                { name: 'Período actual', data: area.data },
+                { name: 'Período anterior', data: area.dataComp },
+            ],
+            chart: {
+                type: 'bar',
+                height: 280,
+                toolbar: { show: false },
+                animations: { enabled: true, speed: 500 },
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 3,
+                    barHeight: '70%',
+                    dataLabels: { position: 'top' },
+                },
+            },
+            xaxis: {
+                categories: area.labels,
+                labels: { show: false },
+            },
+            yaxis: {
+                labels: {
+                    style: { colors: '#555', fontSize: '11px', fontFamily: 'Outfit, sans-serif' },
+                    maxWidth: 200,
+                },
+            },
+            colors: AREA_COLORS,
+            ...COMP_STYLES,
+        };
+        container.innerHTML = '';
+        new ApexCharts(container, options).render();
+        return;
+    }
+
+    // Normal mode: donut
+    const options = {
+        series: area.data,
+        chart: {
+            type: 'donut',
+            height: 340,
+            animations: { enabled: true }
+        },
+        labels: area.labels,
+        colors: AREA_COLORS,
         legend: {
             position: 'bottom',
             fontSize: '12px',

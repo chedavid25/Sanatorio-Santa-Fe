@@ -4,8 +4,8 @@
 -- ============================================================
 
 -- Prácticas agrupadas por (modulo, codigo, nombre) — para el chart de top prácticas
-DROP VIEW IF EXISTS gold.gold_vw_di_practicas_agg CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_practicas_agg CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_practicas_agg CASCADE;
 
 CREATE MATERIALIZED VIEW gold.gold_vw_di_practicas_agg AS
 SELECT
@@ -20,18 +20,18 @@ GROUP BY modulo, codigo_practica, nombre_practica;
 CREATE INDEX IF NOT EXISTS idx_mv_practicas_agg_total ON gold.gold_vw_di_practicas_agg (total_estudios DESC);
 
 -- Derivantes agrupados por (modulo, matricula, nombre) — para el chart de top derivantes
-DROP VIEW IF EXISTS gold.gold_vw_di_derivantes_agg CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_derivantes_agg CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_derivantes_agg CASCADE;
 
 CREATE MATERIALIZED VIEW gold.gold_vw_di_derivantes_agg AS
 SELECT
     modulo,
     matricula_solicitante,
-    nombre_solicitante,
+    nombre_solicitante_limpio AS nombre_solicitante,
     COUNT(*)::integer AS total_derivaciones
-FROM diagnostico_imagenes.bronze_detalle_di
-WHERE nombre_solicitante IS NOT NULL
-GROUP BY modulo, matricula_solicitante, nombre_solicitante;
+FROM diagnostico_imagenes.silver_detalle_di
+WHERE nombre_solicitante_limpio IS NOT NULL
+GROUP BY modulo, matricula_solicitante, nombre_solicitante_limpio;
 
 CREATE INDEX IF NOT EXISTS idx_mv_derivantes_agg_total ON gold.gold_vw_di_derivantes_agg (total_derivaciones DESC);
 
@@ -84,8 +84,8 @@ ORDER BY modulo, codigo_practica, anio, mes;
 -- ============================================================
 
 -- 1. Resumen mensual de estudios por sede
-DROP VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_resumen_por_sede_mes AS
 SELECT
     b.modulo,
@@ -101,8 +101,8 @@ GROUP BY b.modulo, COALESCE(s.sede, 'OTRA'), EXTRACT(YEAR FROM b.me_fecha), EXTR
 CREATE INDEX idx_mv_resumen_sede_mes ON gold.gold_vw_di_resumen_por_sede_mes (sede);
 
 -- 2. Prácticas por sede
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_practica AS
 SELECT
     modulo,
@@ -119,25 +119,23 @@ GROUP BY modulo, COALESCE(s.sede, 'OTRA'), codigo_practica, nombre_practica;
 CREATE INDEX idx_mv_sede_practica ON gold.gold_vw_di_sede_por_practica (sede, total_estudios DESC);
 
 -- 3. Derivantes por sede
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_derivante CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_derivante CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_derivante CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_derivante AS
 SELECT
     modulo,
-    COALESCE(s.sede, 'OTRA') AS sede,
-    nombre_solicitante,
+    sede,
+    nombre_solicitante_limpio AS nombre_solicitante,
     COUNT(*)::integer AS total_derivaciones
-FROM diagnostico_imagenes.bronze_detalle_di b
-LEFT JOIN silver_shared.silver_sedes_equivalencias s
-    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
-WHERE nombre_solicitante IS NOT NULL
-GROUP BY modulo, COALESCE(s.sede, 'OTRA'), nombre_solicitante;
+FROM diagnostico_imagenes.silver_detalle_di
+WHERE nombre_solicitante_limpio IS NOT NULL
+GROUP BY modulo, sede, nombre_solicitante_limpio;
 
 CREATE INDEX idx_mv_sede_derivante ON gold.gold_vw_di_sede_por_derivante (sede, total_derivaciones DESC);
 
 -- 4. Obras sociales por sede
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_os AS
 SELECT
     modulo,
@@ -153,8 +151,8 @@ GROUP BY modulo, COALESCE(s.sede, 'OTRA'), nombre_os;
 CREATE INDEX idx_mv_sede_os ON gold.gold_vw_di_sede_por_os (sede, total_estudios DESC);
 
 -- 5. Intermediarias por sede
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_intermediaria AS
 SELECT
     b.modulo,

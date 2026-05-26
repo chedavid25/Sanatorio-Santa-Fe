@@ -30,6 +30,7 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
         gMes('gold_vw_di_derivantes_por_mes',     'modulo,nombre_solicitante,anio,mes,cantidad',                 fromAnio, toAnio),
         g('gold_vw_di_os_por_intermediaria',      'modulo,intermediaria_limpia,nombre_os,total_estudios'),
         gMes('gold_vw_di_resumen_por_sede_mes',   'modulo,sede,anio,mes,total_estudios',                         fromAnio, toAnio),
+        gMes('gold_vw_di_area_por_mes',           'modulo,sede,anio,mes,area_tipo,cantidad',                     fromAnio, toAnio),
     ];
 
     const results = await Promise.allSettled(queries);
@@ -37,7 +38,7 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
     // Log errors for any failed view (silently continue with empty arrays)
     const VIEW_NAMES = [
         'resumen_por_mes', 'os_por_mes', 'intermediaria_por_mes',
-        'practicas_por_mes', 'derivantes_por_mes', 'os_por_intermediaria', 'resumen_por_sede_mes'
+        'practicas_por_mes', 'derivantes_por_mes', 'os_por_intermediaria', 'resumen_por_sede_mes', 'area_por_mes'
     ];
     results.forEach((r, i) => {
         if (r.status === 'rejected') {
@@ -62,9 +63,10 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
         derivantes_por_mes,
         os_por_intermediaria,
         resumen_sede,
+        area_por_mes,
     ] = rows;
 
-    return { resumen, os_por_mes, int_por_mes, practicas_por_mes, derivantes_por_mes, os_por_intermediaria, resumen_sede };
+    return { resumen, os_por_mes, int_por_mes, practicas_por_mes, derivantes_por_mes, os_por_intermediaria, resumen_sede, area_por_mes };
 }
 
 export async function fetchPracticaDetail(codigoPractica, fromAnio = null, toAnio = null) {
@@ -362,6 +364,43 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
         });
     }
 
+    // ── Área distribution (Ambulatorio vs Internado) ──────────────────────
+    const areaFiltrado = (baseData.area_por_mes || []).filter(r => {
+        const v = r.anio * 100 + r.mes;
+        const matchFecha = v >= fromVal && v <= toVal;
+        const matchModulo = permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
+        const matchSede = filter.tipo === 'sede' ? r.sede === filter.valor : true;
+        return matchFecha && matchModulo && matchSede;
+    });
+
+    const areaMap = { Ambulatorio: 0, Internado: 0 };
+    areaFiltrado.forEach(r => {
+        if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
+            areaMap[r.area_tipo] += r.cantidad;
+        }
+    });
+
+    const areaLabels = ['Ambulatorio', 'Internado'];
+    const areaData = [areaMap.Ambulatorio, areaMap.Internado];
+
+    let areaDataComp = null;
+    if (compararActivo) {
+        const areaCompFiltrado = (baseData.area_por_mes || []).filter(r => {
+            const v = r.anio * 100 + r.mes;
+            const matchFecha = v >= compFromVal && v <= compToVal;
+            const matchModulo = permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
+            const matchSede = filter.tipo === 'sede' ? r.sede === filter.valor : true;
+            return matchFecha && matchModulo && matchSede;
+        });
+        const areaMapComp = { Ambulatorio: 0, Internado: 0 };
+        areaCompFiltrado.forEach(r => {
+            if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
+                areaMapComp[r.area_tipo] += r.cantidad;
+            }
+        });
+        areaDataComp = [areaMapComp.Ambulatorio, areaMapComp.Internado];
+    }
+
     return {
         trend: { labels: trendLabels, series: trendSeries },
         kpi: {
@@ -401,6 +440,11 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
             data: topDerivantes.map(d => d.total_derivaciones),
             dataComp: compararActivo ? topDerivantes.map(d => derivantesCompMap[d.nombre_solicitante] || 0) : null,
         },
+        area: {
+            labels: areaLabels,
+            data: areaData,
+            dataComp: areaDataComp
+        }
     };
 }
 

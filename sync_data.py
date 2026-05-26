@@ -65,7 +65,6 @@ def fetch_detalle(token, api_module, serv_id, ubic_id, fecha_desde, fecha_hasta)
             "fechaDesde": fecha_desde,
             "fechaHasta": fecha_hasta,
             "serv_id": serv_id,
-            "ubic_id": ubic_id,
         },
         timeout=120,
     )

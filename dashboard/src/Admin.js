@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import { DEPARTAMENTOS } from './config'
 import { getUser, hasPermission } from './lib/state'
 
-let currentData = { codigos: [], os: [], int: [], sedes: [] };
+let currentData = { codigos: [], os: [], int: [], sedes: [], derivantes: [] };
 let masterNames = [];
 let sortConfig = { key: 'codigo', direction: 'asc' };
 let activeTab = 'codigos';
@@ -146,7 +146,7 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
                                         <!-- Toolbar -->
                                         <div class="row mb-4 align-items-end">
                                             <div class="col-md-3">
-                                                <label class="form-label">Departamento</label>
+                                                <label class="form-label">Unidad</label>
                                                 <select class="form-select" id="filter-dept"><option value="DI">Diagnóstico por Imágenes</option></select>
                                             </div>
                                             <div class="col-md-3">
@@ -183,6 +183,7 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
                                             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-os" id="nav-os">Obras sociales</a></li>
                                             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-int" id="nav-int">Intermediarias</a></li>
                                             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sedes" id="nav-sedes">Sedes</a></li>
+                                            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-derivantes" id="nav-derivantes">Médicos derivantes</a></li>
                                         </ul>
 
                                         <div class="tab-content p-3 text-muted">
@@ -190,6 +191,7 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
                                             <div class="tab-pane" id="tab-os"><div id="admin-os-content"></div></div>
                                             <div class="tab-pane" id="tab-int"><div id="admin-int-content"></div></div>
                                             <div class="tab-pane" id="tab-sedes"><div id="admin-sedes-content"></div></div>
+                                            <div class="tab-pane" id="tab-derivantes"><div id="admin-derivantes-content"></div></div>
                                         </div>
                                     </div>
                                 </div>
@@ -465,6 +467,7 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
         document.getElementById('nav-os')?.addEventListener('click', () => { activeTab = 'os'; window.clearSelection(); loadOS(); });
         document.getElementById('nav-int')?.addEventListener('click', () => { activeTab = 'int'; window.clearSelection(); loadIntermediarias(); });
         document.getElementById('nav-sedes')?.addEventListener('click', () => { activeTab = 'sedes'; window.clearSelection(); loadSedes(); });
+        document.getElementById('nav-derivantes')?.addEventListener('click', () => { activeTab = 'derivantes'; window.clearSelection(); loadDerivantes(); });
 
         document.getElementById('search-input')?.addEventListener('input', (e) => filterData(e.target.value));
 
@@ -706,6 +709,13 @@ function filterData(query) {
         );
         renderCodigosTable(document.getElementById('admin-codigos-content'), filtered);
         initTableChoices(); // Re-inicializar tras filtrar
+    } else if (activeTab === 'derivantes') {
+        const filtered = currentData.derivantes.filter(item => 
+            item.nombre_original.toLowerCase().includes(q) || 
+            item.nombre_unificado.toLowerCase().includes(q) || 
+            (item.servicio_unificado && item.servicio_unificado.toLowerCase().includes(q))
+        );
+        renderDerivantesTable(document.getElementById('admin-derivantes-content'), filtered);
     }
 }
 
@@ -775,6 +785,109 @@ window.sortData = (key) => {
 async function loadOS() { const { data } = await supabase.schema('silver_shared').from('silver_os_equivalencias').select('*'); currentData.os = data || []; renderOSTable(document.getElementById('admin-os-content'), currentData.os); }
 async function loadIntermediarias() { const { data } = await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').select('*'); currentData.int = data || []; renderIntTable(document.getElementById('admin-int-content'), currentData.int); }
 async function loadSedes() { const { data } = await supabase.schema('silver_shared').from('silver_sedes_equivalencias').select('*'); currentData.sedes = data || []; renderSedesTable(document.getElementById('admin-sedes-content'), currentData.sedes); }
+async function loadDerivantes() {
+    const content = document.getElementById('admin-derivantes-content');
+    content.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
+    
+    try {
+        // Primero traer los nombres que ya existen en la tabla de equivalencias
+        const { data: equivData, error: equivError } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('*');
+        if (equivError) throw equivError;
+        
+        // También buscar los nombres originales que existen en el detalle pero no están en la tabla de equivalencias,
+        // para que el usuario los pueda sanear. Hacemos un select de los solicitantes únicos desde el detalle.
+        const { data: rawSol, error: rawError } = await supabase.rpc('get_unique_derivantes_from_detail');
+        if (rawError) throw rawError;
+        
+        console.log('equivData:', equivData);
+        console.log('rawSol:', rawSol);
+
+        const equivMap = new Map();
+        (equivData || []).forEach(item => {
+            equivMap.set(item.nombre_original, {
+                id: item.id,
+                nombre_unificado: item.nombre_unificado,
+                servicio_unificado: item.servicio_unificado
+            });
+        });
+
+        const combined = [];
+        // Agregar todos los existentes de la tabla de equivalencias
+        (equivData || []).forEach(item => {
+            combined.push({
+                nombre_original: item.nombre_original,
+                nombre_unificado: item.nombre_unificado,
+                servicio_unificado: item.servicio_unificado || '',
+                registrado: true
+            });
+        });
+
+        // Agregar los que están en el detalle de transacciones pero no tienen equivalencia configurada
+        (rawSol || []).forEach(r => {
+            if (r.nombre_solicitante && !equivMap.has(r.nombre_solicitante)) {
+                combined.push({
+                    nombre_original: r.nombre_solicitante,
+                    nombre_unificado: '',
+                    servicio_unificado: '',
+                    registrado: false
+                });
+            }
+        });
+
+        // Ordenar alfabéticamente por nombre original
+        combined.sort((a, b) => a.nombre_original.localeCompare(b.nombre_original));
+
+        currentData.derivantes = combined;
+        renderDerivantesTable(content, combined);
+    } catch (err) {
+        console.error('Error cargando derivantes:', err);
+        content.innerHTML = `<div class="alert alert-danger">Error al cargar médicos derivantes: ${err.message || err}</div>`;
+    }
+}
+
+function renderDerivantesTable(container, data) {
+    if (!container) return;
+    
+    // Servicios unificados disponibles para asignar
+    const servicios = ['Videoendoscopía', 'Tomografía', 'Resonancia', 'Ecografía'];
+
+    container.innerHTML = `
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Estado</th>
+                    <th>Nombre Original (Detalle)</th>
+                    <th>Nombre Unificado (Médico)</th>
+                    <th>Servicio Asignado</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.map(item => `
+                    <tr>
+                        <td>${item.nombre_unificado ? '✅' : '⚠️'}</td>
+                        <td><strong>${item.nombre_original}</strong></td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" 
+                                   value="${item.nombre_unificado}" 
+                                   placeholder="Escriba nombre unificado..."
+                                   onblur="window.updateDerivanteUnificado('${item.nombre_original.replace(/'/g, "\\'")}', this.value)">
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm" 
+                                    onchange="window.updateDerivanteServicio('${item.nombre_original.replace(/'/g, "\\'")}', this.value)">
+                                <option value="">Sin servicio...</option>
+                                ${servicios.map(s => `
+                                    <option value="${s}" ${item.servicio_unificado === s ? 'selected' : ''}>${s}</option>
+                                `).join('')}
+                            </select>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
 
 function renderOSTable(container, data) {
     container.innerHTML = `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Estado</th><th>Nombre crudo</th><th>Nombre completo</th></tr></thead>
@@ -803,6 +916,39 @@ window.updateNombreUnificado = async (codigo, value) => {
 window.updateOSCompleto = async (nombre_crudo, value) => { await supabase.schema('silver_shared').from('silver_os_equivalencias').update({ os_nombre_limpio: value }).eq('os_nombre_crudo', nombre_crudo); };
 window.updateIntLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').update({ intermediaria_limpia: value }).eq('id', id); };
 window.updateSedeLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_sedes_equivalencias').update({ sede: value }).eq('id', id); };
+
+window.updateDerivanteUnificado = async (nombre_original, value) => {
+    const val = value.trim();
+    if (!val) {
+        // Si borramos el unificado, eliminamos la equivalencia
+        await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').delete().eq('nombre_original', nombre_original);
+    } else {
+        // Buscamos si ya existe la fila para hacer update, sino insert
+        const { data } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('id').eq('nombre_original', nombre_original).maybeSingle();
+        if (data) {
+            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').update({ nombre_unificado: val }).eq('id', data.id);
+        } else {
+            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').insert([{ nombre_original, nombre_unificado: val }]);
+        }
+    }
+    loadDerivantes();
+};
+
+window.updateDerivanteServicio = async (nombre_original, value) => {
+    const val = value || null;
+    const { data } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('id, nombre_unificado').eq('nombre_original', nombre_original).maybeSingle();
+    if (data) {
+        await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').update({ servicio_unificado: val }).eq('id', data.id);
+    } else {
+        // Si no tiene nombre unificado pero le asignamos servicio, usamos el original como unificado por defecto
+        await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').insert([{ 
+            nombre_original, 
+            nombre_unificado: nombre_original, 
+            servicio_unificado: val 
+        }]);
+    }
+    loadDerivantes();
+};
 
 // --- FUNCIONES GESTIÓN DE USUARIOS ---
 async function loadUsers() {

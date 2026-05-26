@@ -128,7 +128,7 @@ export function renderDashboard(container, session) {
                                 <span>Resumen General</span>
                             </a>
                         </li>
-                        <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Departamentos</li>
+                        <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Unidades</li>
                         ${DEPARTAMENTOS.map(dept => `
                             <li class="${dept.activo ? '' : 'text-muted'}">
                                 <a href="${dept.activo ? '#' : 'javascript:void(0);'}"
@@ -213,9 +213,9 @@ export function renderDashboard(container, session) {
                         </div>
                     </div>
 
-                    <!-- OS + Intermediaria + Sede -->
+                    <!-- OS + Intermediaria + Sede + Área -->
                     <div class="row">
-                        <div class="col-xl-4 col-md-6">
+                        <div class="col-xl-3 col-md-6">
                             <div class="card">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Top Obras Sociales</h4>
@@ -225,7 +225,7 @@ export function renderDashboard(container, session) {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-4 col-md-6">
+                        <div class="col-xl-3 col-md-6">
                             <div class="card">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Distribución por Intermediaria</h4>
@@ -235,13 +235,23 @@ export function renderDashboard(container, session) {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-4 col-md-12">
+                        <div class="col-xl-3 col-md-6">
                             <div class="card">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Distribución por Sede</h4>
                                 </div>
                                 <div class="card-body">
                                     <div id="sede-distribution-chart" class="apex-charts"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title mb-0">Distribución por Área</h4>
+                                </div>
+                                <div class="card-body">
+                                    <div id="area-distribution-chart" class="apex-charts"></div>
                                 </div>
                             </div>
                         </div>
@@ -335,7 +345,7 @@ export function renderDashboard(container, session) {
         renderMainChart('main-trend-chart', viewData.trend, filter);
         renderPracticasChart('practicas-chart', viewData.practicas, filter);
         renderDerivantesChart('derivantes-chart', viewData.derivantes);
-        renderDistributionCharts(viewData.os, viewData.int, viewData.sede);
+        renderDistributionCharts(viewData.os, viewData.int, viewData.sede, viewData.area);
     }
 
     async function handlePracticaFilter(filter) {
@@ -358,10 +368,46 @@ export function renderDashboard(container, session) {
             const trendSeries = [{ name: filter.label || filter.valor, data: sortedMes.map(r => r.total_estudios) }];
 
             renderMainChart('main-trend-chart', { labels: trendLabels, series: trendSeries }, filter);
+            // Calcular distribución de área para la práctica
+            const moduloFiltroAct = getFilter().tipo === 'modulo' ? getFilter().valor : null;
+            const permitidosAct = MODULOS.filter(mod => hasPermission(mod));
+            const areaPracFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
+                const v = r.anio * 100 + r.mes;
+                const matchFecha = v >= fromVal && v <= toVal;
+                const matchModulo = permitidosAct.includes(r.modulo) && (!moduloFiltroAct || r.modulo === moduloFiltroAct);
+                return matchFecha && matchModulo;
+            });
+            const areaPracMap = { Ambulatorio: 0, Internado: 0 };
+            areaPracFiltrado.forEach(r => {
+                if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
+                    areaPracMap[r.area_tipo] += r.cantidad;
+                }
+            });
+            let areaPracDataComp = null;
+            if (compararActivo) {
+                const diffYears = toAnio - Number(anioComparacion);
+                const compFromVal = (fromAnio - diffYears) * 100 + fromMes;
+                const compToVal   = (toAnio   - diffYears) * 100 + toMes;
+                const areaPracCompFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
+                    const v = r.anio * 100 + r.mes;
+                    const matchFecha = v >= compFromVal && v <= compToVal;
+                    const matchModulo = permitidosAct.includes(r.modulo) && (!moduloFiltroAct || r.modulo === moduloFiltroAct);
+                    return matchFecha && matchModulo;
+                });
+                const areaPracMapComp = { Ambulatorio: 0, Internado: 0 };
+                areaPracCompFiltrado.forEach(r => {
+                    if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
+                        areaPracMapComp[r.area_tipo] += r.cantidad;
+                    }
+                });
+                areaPracDataComp = [areaPracMapComp.Ambulatorio, areaPracMapComp.Internado];
+            }
+
             renderDistributionCharts(
                 { labels: detail.os.map(r => r.nombre_os), data: detail.os.map(r => r.total_estudios) },
                 { labels: detail.int.map(r => r.intermediaria_limpia), data: detail.int.map(r => r.total_estudios) },
-                null // En filtro de práctica, el de sedes no se redefine o se limpia
+                null, // En filtro de práctica, el de sedes no se redefine o se limpia
+                { labels: ['Ambulatorio', 'Internado'], data: [areaPracMap.Ambulatorio, areaPracMap.Internado], dataComp: areaPracDataComp }
             );
         } catch (err) {
             console.error('Error al cargar detalle de práctica', err);
@@ -414,10 +460,48 @@ export function renderDashboard(container, session) {
             renderKPICards(document.getElementById('kpi-container'), { total: kpiTotal, porModulo: kpiPorModulo, sparklines }, filter);
             renderMainChart('main-trend-chart', { labels: trendLabels, series: trendSeries }, filter);
 
+            // Calcular distribución de área filtrada por Sede
+            const moduloFiltroSede = getFilter().tipo === 'modulo' ? getFilter().valor : null;
+            const permitidosSede = MODULOS.filter(mod => hasPermission(mod));
+            const areaSedeFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
+                const v = r.anio * 100 + r.mes;
+                const matchFecha = v >= fromVal && v <= toVal;
+                const matchModulo = permitidosSede.includes(r.modulo) && (!moduloFiltroSede || r.modulo === moduloFiltroSede);
+                const matchSede = r.sede === filter.valor;
+                return matchFecha && matchModulo && matchSede;
+            });
+            const areaSedeMap = { Ambulatorio: 0, Internado: 0 };
+            areaSedeFiltrado.forEach(r => {
+                if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
+                    areaSedeMap[r.area_tipo] += r.cantidad;
+                }
+            });
+            let areaSedeDataComp = null;
+            if (compararActivo) {
+                const diffYears = toAnio - Number(anioComparacion);
+                const compFromVal = (fromAnio - diffYears) * 100 + fromMes;
+                const compToVal   = (toAnio   - diffYears) * 100 + toMes;
+                const areaSedeCompFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
+                    const v = r.anio * 100 + r.mes;
+                    const matchFecha = v >= compFromVal && v <= compToVal;
+                    const matchModulo = permitidosSede.includes(r.modulo) && (!moduloFiltroSede || r.modulo === moduloFiltroSede);
+                    const matchSede = r.sede === filter.valor;
+                    return matchFecha && matchModulo && matchSede;
+                });
+                const areaSedeMapComp = { Ambulatorio: 0, Internado: 0 };
+                areaSedeCompFiltrado.forEach(r => {
+                    if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
+                        areaSedeMapComp[r.area_tipo] += r.cantidad;
+                    }
+                });
+                areaSedeDataComp = [areaSedeMapComp.Ambulatorio, areaSedeMapComp.Internado];
+            }
+
             renderDistributionCharts(
                 { labels: detail.os.map(r => r.nombre_os), data: detail.os.map(r => r.total_estudios) },
                 { labels: detail.int.map(r => r.intermediaria_limpia), data: detail.int.map(r => r.total_estudios) },
-                { labels: [filter.valor], data: [kpiTotal] }
+                { labels: [filter.valor], data: [kpiTotal] },
+                { labels: ['Ambulatorio', 'Internado'], data: [areaSedeMap.Ambulatorio, areaSedeMap.Internado], dataComp: areaSedeDataComp }
             );
 
             renderPracticasChart('practicas-chart', {

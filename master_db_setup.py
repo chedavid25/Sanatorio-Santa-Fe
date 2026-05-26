@@ -16,7 +16,10 @@ SQL_FILES = [
     "bronze_setup.sql",
     "silver_shared_setup.sql",
     "silver_views.sql",
-    "gold_views.sql"
+    "detalle_setup.sql",
+    "gold_views.sql",
+    "crossfilter_views.sql",
+    "add_os_int_por_mes.sql"
 ]
 
 def execute_sql_file(cur, file_path):

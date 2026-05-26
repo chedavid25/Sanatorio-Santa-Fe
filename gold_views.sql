@@ -297,8 +297,8 @@ SELECT modulo, servicio_limpio, sede, anio, mes, cantidad FROM eco
 ORDER BY anio, mes, modulo, servicio_limpio;
 
 -- Vista de mapeo entre Intermediaria y Obra Social para filtro cruzado dinámico (materializada para evitar timeouts)
-DROP VIEW IF EXISTS gold.gold_vw_di_os_por_intermediaria CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_os_por_intermediaria CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_os_por_intermediaria CASCADE;
 
 CREATE MATERIALIZED VIEW gold.gold_vw_di_os_por_intermediaria AS
 SELECT
@@ -317,8 +317,8 @@ GROUP BY b.modulo, COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria)), b.no
 GRANT SELECT ON gold.gold_vw_di_os_por_intermediaria TO anon, service_role;
 
 -- Vistas materializadas de Sede para filtro cruzado dinámico
-DROP VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_resumen_por_sede_mes AS
 SELECT
     b.modulo,
@@ -334,8 +334,8 @@ GROUP BY b.modulo, COALESCE(s.sede, 'OTRA'), EXTRACT(YEAR FROM b.me_fecha), EXTR
 CREATE INDEX idx_mv_resumen_sede_mes ON gold.gold_vw_di_resumen_por_sede_mes (sede);
 GRANT SELECT ON gold.gold_vw_di_resumen_por_sede_mes TO anon, service_role;
 
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_practica AS
 SELECT
     modulo,
@@ -352,8 +352,8 @@ GROUP BY modulo, COALESCE(s.sede, 'OTRA'), codigo_practica, nombre_practica;
 CREATE INDEX idx_mv_sede_practica ON gold.gold_vw_di_sede_por_practica (sede, total_estudios DESC);
 GRANT SELECT ON gold.gold_vw_di_sede_por_practica TO anon, service_role;
 
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_derivante CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_derivante CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_derivante CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_derivante AS
 SELECT
     modulo,
@@ -369,8 +369,8 @@ GROUP BY modulo, COALESCE(s.sede, 'OTRA'), nombre_solicitante;
 CREATE INDEX idx_mv_sede_derivante ON gold.gold_vw_di_sede_por_derivante (sede, total_derivaciones DESC);
 GRANT SELECT ON gold.gold_vw_di_sede_por_derivante TO anon, service_role;
 
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_os AS
 SELECT
     modulo,
@@ -386,8 +386,8 @@ GROUP BY modulo, COALESCE(s.sede, 'OTRA'), nombre_os;
 CREATE INDEX idx_mv_sede_os ON gold.gold_vw_di_sede_por_os (sede, total_estudios DESC);
 GRANT SELECT ON gold.gold_vw_di_sede_por_os TO anon, service_role;
 
-DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_intermediaria AS
 SELECT
     b.modulo,
@@ -405,6 +405,27 @@ GROUP BY b.modulo, COALESCE(s.sede, 'OTRA'), COALESCE(i.intermediaria_limpia, TR
 CREATE INDEX idx_mv_sede_intermediaria ON gold.gold_vw_di_sede_por_intermediaria (sede, total_estudios DESC);
 GRANT SELECT ON gold.gold_vw_di_sede_por_intermediaria TO anon, service_role;
 
+-- Vista para distribución por área (Ambulatorio / Internado)
+CREATE OR REPLACE VIEW gold.gold_vw_di_area_por_mes AS
+SELECT
+    modulo,
+    COALESCE(s.sede, 'OTRA') AS sede,
+    EXTRACT(YEAR FROM b.me_fecha)::integer AS anio,
+    EXTRACT(MONTH FROM b.me_fecha)::integer AS mes,
+    CASE 
+        WHEN b.area = 'I' OR b.area IS NULL OR TRIM(b.area) = '' THEN 'Internado'
+        ELSE 'Ambulatorio'
+    END AS area_tipo,
+    COUNT(*)::integer AS cantidad
+FROM diagnostico_imagenes.bronze_detalle_di b
+LEFT JOIN silver_shared.silver_sedes_equivalencias s
+    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
+GROUP BY modulo, COALESCE(s.sede, 'OTRA'), EXTRACT(YEAR FROM b.me_fecha), EXTRACT(MONTH FROM b.me_fecha), 
+         CASE WHEN b.area = 'I' OR b.area IS NULL OR TRIM(b.area) = '' THEN 'Internado' ELSE 'Ambulatorio' END;
+
+GRANT SELECT ON gold.gold_vw_di_area_por_mes TO anon, service_role;
+
 -- Permisos sobre las vistas recien creadas (por si ALTER DEFAULT no aplico)
 GRANT SELECT ON ALL TABLES IN SCHEMA gold TO anon, service_role;
+
 

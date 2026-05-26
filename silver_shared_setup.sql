@@ -49,6 +49,16 @@ CREATE TABLE IF NOT EXISTS silver_shared.silver_intermediaria_equivalencias (
 );
 
 -- --------------------------------------------------------
+-- --------------------------------------------------------
+-- Médicos derivantes: nombre crudo → nombre limpio + servicio unificado
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS silver_shared.silver_derivantes_equivalencias (
+    id                 BIGSERIAL PRIMARY KEY,
+    nombre_original    TEXT NOT NULL UNIQUE,
+    nombre_unificado   TEXT NOT NULL,
+    servicio_unificado TEXT
+);
+
 -- Permisos para service_role
 -- --------------------------------------------------------
 GRANT USAGE ON SCHEMA silver_shared TO service_role;
@@ -58,3 +68,23 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA silver_shared
     GRANT ALL ON TABLES TO service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA silver_shared
     GRANT ALL ON SEQUENCES TO service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON silver_shared.silver_derivantes_equivalencias TO anon, authenticated, service_role;
+
+-- Función para obtener los derivantes únicos del detalle (para el dropdown/lista en saneamiento)
+CREATE OR REPLACE FUNCTION public.get_unique_derivantes_from_detail()
+RETURNS TABLE (nombre_solicitante TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT d.nombre_solicitante::TEXT
+    FROM diagnostico_imagenes.silver_detalle_di d
+    WHERE d.nombre_solicitante IS NOT NULL AND d.nombre_solicitante <> ''
+    ORDER BY d.nombre_solicitante::TEXT;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_unique_derivantes_from_detail() TO anon, authenticated, service_role;
+

@@ -38,7 +38,7 @@ export const DEPARTAMENTOS = [
     },
     {
         id: 'medicina_nuclear',
-        nombre: 'Medicina Nuclear',
+        nombre: 'Medicina Laboral',
         icono: 'bx bx-atom',
         activo: false,
         secciones: [],
