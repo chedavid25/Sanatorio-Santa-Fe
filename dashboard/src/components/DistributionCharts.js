@@ -487,3 +487,85 @@ function renderAreaChart(area) {
     container.innerHTML = '';
     new ApexCharts(container, options).render();
 }
+
+export function renderServicioDerivante(serv, onClickServicio) {
+    const container = document.getElementById('serv-distribution-chart');
+    if (!container) return;
+
+    if (!serv || !serv.labels || !serv.labels.length) {
+        container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de servicios. Asigná servicios a los médicos derivantes en el panel de Saneamiento.</p>';
+        return;
+    }
+
+    const maxVal = Math.max(...serv.data);
+
+    const options = {
+        series: [{ name: 'Estudios', data: serv.data }],
+        chart: {
+            type: 'bar',
+            height: Math.max(300, serv.labels.length * 36),
+            toolbar: { show: false },
+            animations: { enabled: true, speed: 500 },
+            events: {
+                dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
+                    const servicio = serv.labels[dataPointIndex];
+                    if (servicio && onClickServicio) onClickServicio(servicio);
+                },
+            },
+        },
+        plotOptions: {
+            bar: {
+                horizontal: true,
+                borderRadius: 4,
+                barHeight: '62%',
+                distributed: true,
+                dataLabels: { position: 'top' },
+            },
+        },
+        colors: BLUES.slice(0, serv.labels.length),
+        dataLabels: {
+            enabled: true,
+            textAnchor: 'start',
+            style: {
+                fontSize: '12px',
+                fontFamily: 'Outfit, sans-serif',
+                fontWeight: '600',
+                colors: ['#374151'],
+            },
+            formatter: val => val.toLocaleString(),
+            offsetX: 6,
+            dropShadow: { enabled: false },
+        },
+        xaxis: {
+            categories: serv.labels,
+            max: maxVal * 1.18,
+            labels: { show: false },
+        },
+        yaxis: {
+            labels: {
+                style: { colors: '#555', fontSize: '10px', fontFamily: 'Outfit, sans-serif' },
+                maxWidth: 260,
+            },
+        },
+        grid: {
+            borderColor: '#eff2f7',
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: false } },
+            padding: { left: 20, right: 20 },
+        },
+        legend: { show: false },
+        tooltip: {
+            theme: 'light',
+            custom: ({ series, seriesIndex, dataPointIndex }) => {
+                const label = serv.labels[dataPointIndex] || '';
+                const val = series[seriesIndex][dataPointIndex];
+                return `<div class="apexcharts-tooltip-title" style="font-size:12px">${label}</div>
+                        <div class="px-2 py-1"><b>${val.toLocaleString()}</b> estudios<br>
+                        <small class="text-muted">Clic para ver los médicos de este servicio</small></div>`;
+            },
+        },
+    };
+
+    container.innerHTML = '';
+    new ApexCharts(container, options).render();
+}

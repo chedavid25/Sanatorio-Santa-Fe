@@ -169,6 +169,34 @@ GROUP BY b.modulo, COALESCE(s.sede, 'OTRA'), COALESCE(i.intermediaria_limpia, TR
 
 CREATE INDEX idx_mv_sede_intermediaria ON gold.gold_vw_di_sede_por_intermediaria (sede, total_estudios DESC);
 
+-- 6. Resumen de estudios por servicio unificado del derivante (para el gráfico general del dashboard)
+DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_derivantes_por_servicio CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_derivantes_por_servicio CASCADE;
+CREATE MATERIALIZED VIEW gold.gold_vw_di_derivantes_por_servicio AS
+SELECT
+    modulo,
+    COALESCE(derivante_servicio_unificado, 'Sin Servicio Asignado') AS servicio_unificado,
+    COUNT(*)::integer AS total_estudios
+FROM diagnostico_imagenes.silver_detalle_di
+GROUP BY modulo, COALESCE(derivante_servicio_unificado, 'Sin Servicio Asignado');
+
+CREATE INDEX idx_mv_derivantes_por_servicio ON gold.gold_vw_di_derivantes_por_servicio (servicio_unificado);
+
+-- 7. Médicos derivantes filtrados por servicio unificado
+DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_servicio_por_derivante CASCADE;
+DROP VIEW IF EXISTS gold.gold_vw_di_servicio_por_derivante CASCADE;
+CREATE MATERIALIZED VIEW gold.gold_vw_di_servicio_por_derivante AS
+SELECT
+    modulo,
+    COALESCE(derivante_servicio_unificado, 'Sin Servicio Asignado') AS servicio_unificado,
+    nombre_solicitante_limpio AS nombre_solicitante,
+    COUNT(*)::integer AS total_derivaciones
+FROM diagnostico_imagenes.silver_detalle_di
+WHERE nombre_solicitante_limpio IS NOT NULL
+GROUP BY modulo, COALESCE(derivante_servicio_unificado, 'Sin Servicio Asignado'), nombre_solicitante_limpio;
+
+CREATE INDEX idx_mv_servicio_por_derivante ON gold.gold_vw_di_servicio_por_derivante (servicio_unificado, total_derivaciones DESC);
+
 -- Permisos
 GRANT SELECT ON gold.gold_vw_di_practicas_agg             TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_derivantes_agg            TO anon, service_role;
@@ -180,3 +208,5 @@ GRANT SELECT ON gold.gold_vw_di_sede_por_practica          TO anon, service_role
 GRANT SELECT ON gold.gold_vw_di_sede_por_derivante         TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_sede_por_os                TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_sede_por_intermediaria     TO anon, service_role;
+GRANT SELECT ON gold.gold_vw_di_derivantes_por_servicio   TO anon, service_role;
+GRANT SELECT ON gold.gold_vw_di_servicio_por_derivante     TO anon, service_role;

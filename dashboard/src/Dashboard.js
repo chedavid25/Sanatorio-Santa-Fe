@@ -1,11 +1,11 @@
 import { supabase } from './lib/supabase'
 import { DEPARTAMENTOS } from './config'
-import { fetchAllBaseData, fetchPracticaDetail, fetchSedeDetail, computeViewData, MODULO_LABELS, MODULOS } from './lib/data'
+import { fetchAllBaseData, fetchPracticaDetail, fetchSedeDetail, fetchServicioDetail, computeViewData, MODULO_LABELS, MODULOS } from './lib/data'
 import { getFilter, setFilter, clearFilter, onFilterChange, getUser, hasPermission } from './lib/state'
 import { renderKPICards } from './components/KPICards'
 import { renderMainChart } from './components/MainChart'
 import { renderPracticasChart, renderDerivantesChart } from './components/DetalleCharts'
-import { renderDistributionCharts } from './components/DistributionCharts'
+import { renderDistributionCharts, renderServicioDerivante } from './components/DistributionCharts'
 
 export function renderDashboard(container, session) {
     const activeDept = DEPARTAMENTOS.find(d => d.activo) || DEPARTAMENTOS[0];
@@ -216,7 +216,7 @@ export function renderDashboard(container, session) {
                     <!-- OS + Intermediaria + Sede + Área -->
                     <div class="row">
                         <div class="col-xl-3 col-md-6">
-                            <div class="card">
+                            <div class="card" style="min-height: 420px;">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Top Obras Sociales</h4>
                                 </div>
@@ -226,7 +226,7 @@ export function renderDashboard(container, session) {
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
-                            <div class="card">
+                            <div class="card" style="min-height: 420px;">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Distribución por Intermediaria</h4>
                                 </div>
@@ -236,7 +236,7 @@ export function renderDashboard(container, session) {
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
-                            <div class="card">
+                            <div class="card" style="min-height: 420px;">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Distribución por Sede</h4>
                                 </div>
@@ -246,12 +246,27 @@ export function renderDashboard(container, session) {
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
-                            <div class="card">
+                            <div class="card" style="min-height: 420px;">
                                 <div class="card-header">
                                     <h4 class="card-title mb-0">Distribución por Área</h4>
                                 </div>
                                 <div class="card-body">
                                     <div id="area-distribution-chart" class="apex-charts"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila Adicional: Servicio Médico Derivante -->
+                    <div class="row">
+                        <div class="col-xl-6 col-md-12">
+                            <div class="card animate-fade-in" style="min-height: 420px;">
+                                <div class="card-header d-flex align-items-center">
+                                    <h4 class="card-title mb-0 flex-grow-1">Distribución por Servicio Médico Derivante</h4>
+                                    <small class="text-muted">Hacé clic para ver los médicos del servicio</small>
+                                </div>
+                                <div class="card-body">
+                                    <div id="serv-distribution-chart" class="apex-charts"></div>
                                 </div>
                             </div>
                         </div>
@@ -346,6 +361,7 @@ export function renderDashboard(container, session) {
         renderPracticasChart('practicas-chart', viewData.practicas, filter);
         renderDerivantesChart('derivantes-chart', viewData.derivantes);
         renderDistributionCharts(viewData.os, viewData.int, viewData.sede, viewData.area);
+        renderServicioDerivante(viewData.servicioDerivante, (servicio) => handleServicioFilter(servicio));
     }
 
     async function handlePracticaFilter(filter) {
@@ -411,6 +427,29 @@ export function renderDashboard(container, session) {
             );
         } catch (err) {
             console.error('Error al cargar detalle de práctica', err);
+        }
+    }
+
+    async function handleServicioFilter(servicio) {
+        if (!servicio) return;
+        try {
+            // Actualizar badge de filtro visualmente (informativo)
+            const wrap = document.getElementById('filter-badge-wrap');
+            const text = document.getElementById('filter-badge-text');
+            if (wrap && text) {
+                text.textContent = `Servicio: ${servicio}`;
+                wrap.classList.remove('d-none');
+            }
+            const detail = await fetchServicioDetail(servicio);
+            renderDerivantesChart('derivantes-chart', {
+                labels: detail.derivantes.map(r => r.nombre_solicitante),
+                data: detail.derivantes.map(r => r.total_derivaciones),
+            });
+            // Actualizar encabezado del card de derivantes
+            const cardTitle = document.querySelector('#derivantes-chart')?.closest('.card')?.querySelector('.card-title');
+            if (cardTitle) cardTitle.textContent = `Médicos Derivantes — ${servicio}`;
+        } catch (err) {
+            console.error('Error al cargar detalle de servicio', err);
         }
     }
 
@@ -528,7 +567,12 @@ export function renderDashboard(container, session) {
     });
 
     // ── Filter badge clear button ──────────────────────────────
-    document.getElementById('clear-filter-btn')?.addEventListener('click', () => clearFilter());
+    document.getElementById('clear-filter-btn')?.addEventListener('click', () => {
+        clearFilter();
+        // Restaurar título del card de derivantes
+        const cardTitle = document.querySelector('#derivantes-chart')?.closest('.card')?.querySelector('.card-title');
+        if (cardTitle) cardTitle.textContent = 'Top Médicos Derivantes';
+    });
 
     // ── Load base data ─────────────────────────────────────────
     // fetchYearRange: computes [minAnio, maxAnio] to pass to fetchAllBaseData.

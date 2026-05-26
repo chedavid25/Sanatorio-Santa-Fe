@@ -31,6 +31,7 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
         g('gold_vw_di_os_por_intermediaria',      'modulo,intermediaria_limpia,nombre_os,total_estudios'),
         gMes('gold_vw_di_resumen_por_sede_mes',   'modulo,sede,anio,mes,total_estudios',                         fromAnio, toAnio),
         gMes('gold_vw_di_area_por_mes',           'modulo,sede,anio,mes,area_tipo,cantidad',                     fromAnio, toAnio),
+        g('gold_vw_di_derivantes_por_servicio',   'modulo,servicio_unificado,total_estudios'),
     ];
 
     const results = await Promise.allSettled(queries);
@@ -38,7 +39,7 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
     // Log errors for any failed view (silently continue with empty arrays)
     const VIEW_NAMES = [
         'resumen_por_mes', 'os_por_mes', 'intermediaria_por_mes',
-        'practicas_por_mes', 'derivantes_por_mes', 'os_por_intermediaria', 'resumen_por_sede_mes', 'area_por_mes'
+        'practicas_por_mes', 'derivantes_por_mes', 'os_por_intermediaria', 'resumen_por_sede_mes', 'area_por_mes', 'derivantes_por_servicio'
     ];
     results.forEach((r, i) => {
         if (r.status === 'rejected') {
@@ -64,9 +65,10 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
         os_por_intermediaria,
         resumen_sede,
         area_por_mes,
+        derivantes_por_servicio,
     ] = rows;
 
-    return { resumen, os_por_mes, int_por_mes, practicas_por_mes, derivantes_por_mes, os_por_intermediaria, resumen_sede, area_por_mes };
+    return { resumen, os_por_mes, int_por_mes, practicas_por_mes, derivantes_por_mes, os_por_intermediaria, resumen_sede, area_por_mes, derivantes_por_servicio };
 }
 
 export async function fetchPracticaDetail(codigoPractica, fromAnio = null, toAnio = null) {
@@ -133,6 +135,18 @@ export async function fetchSedeDetail(sede, fromAnio = null, toAnio = null) {
         practicas: practicasRes.data || [],
         derivantes: derivantesRes.data || [],
         mes: mesRes.data || [],
+    };
+}
+
+export async function fetchServicioDetail(servicioUnificado) {
+    // Obtener los derivantes específicos asociados a ese servicio unificado
+    const { data: derivantes } = await supabase.schema('gold').from('gold_vw_di_servicio_por_derivante')
+        .select('modulo,nombre_solicitante,total_derivaciones')
+        .eq('servicio_unificado', servicioUnificado)
+        .order('total_derivaciones', { ascending: false })
+        .limit(20);
+    return {
+        derivantes: derivantes || []
     };
 }
 
@@ -364,6 +378,16 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
         });
     }
 
+    // ── Derivantes por servicio unificado ─────────────────────────
+    const servFiltrado = (baseData.derivantes_por_servicio || []).filter(r => {
+        return permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
+    });
+    const servMap = {};
+    servFiltrado.forEach(r => {
+        if (r.servicio_unificado) servMap[r.servicio_unificado] = (servMap[r.servicio_unificado] || 0) + r.total_estudios;
+    });
+    const servEntries = Object.entries(servMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
     // ── Área distribution (Ambulatorio vs Internado) ──────────────────────
     const areaFiltrado = (baseData.area_por_mes || []).filter(r => {
         const v = r.anio * 100 + r.mes;
@@ -428,6 +452,10 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
             labels: sedeEntries.map(e => e[0]),
             data: sedeEntries.map(e => e[1]),
             dataComp: compararActivo ? sedeEntries.map(e => sedeCompMap[e[0]] || 0) : null,
+        },
+        servicioDerivante: {
+            labels: servEntries.map(e => e[0]),
+            data: servEntries.map(e => e[1])
         },
         practicas: {
             labels: topPracticas.map(p => p.nombre_practica),
