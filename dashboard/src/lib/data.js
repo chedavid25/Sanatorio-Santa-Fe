@@ -11,13 +11,34 @@ export const MODULO_LABELS = {
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 const g = (view, cols) => () => supabase.schema('gold').from(view).select(cols);
-// Helper: query a _por_mes view with a server-side year range filter.
-// Returns a function that returns the query promise so it can be deferred/retried.
-const gMes = (view, cols, fromAnio, toAnio) => () =>
-    supabase.schema('gold').from(view).select(cols)
-        .gte('anio', fromAnio)
-        .lte('anio', toAnio)
-        .limit(50000);   // safety cap; never reached in practice
+const gMes = (view, cols, fromAnio, toAnio) => async () => {
+    let allData = [];
+    let from = 0;
+    let to = 999;
+    let hasMore = true;
+
+    while (hasMore) {
+        const res = await supabase.schema('gold').from(view)
+            .select(cols)
+            .gte('anio', fromAnio)
+            .lte('anio', toAnio)
+            .range(from, to);
+
+        if (res.error) {
+            throw res.error;
+        }
+
+        const data = res.data || [];
+        allData = allData.concat(data);
+        if (data.length < 1000) {
+            hasMore = false;
+        } else {
+            from += 1000;
+            to += 1000;
+        }
+    }
+    return { data: allData };
+};
 
 // Helper robusto para ejecutar consultas con reintentos y retroceso exponencial
 async function withRetry(queryFn, retries = 3, delayMs = 600) {

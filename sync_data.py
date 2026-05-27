@@ -285,7 +285,12 @@ def refresh_materialized_views():
         "gold.gold_vw_di_sede_por_practica",
         "gold.gold_vw_di_sede_por_derivante",
         "gold.gold_vw_di_sede_por_os",
-        "gold.gold_vw_di_sede_por_intermediaria"
+        "gold.gold_vw_di_sede_por_intermediaria",
+        "gold.gold_vw_di_practicas_por_mes",
+        "gold.gold_vw_di_derivantes_por_mes",
+        "gold.gold_vw_di_os_por_mes",
+        "gold.gold_vw_di_intermediaria_por_mes",
+        "gold.gold_vw_di_area_por_mes"
     ]
     try:
         conn = psycopg2.connect(
