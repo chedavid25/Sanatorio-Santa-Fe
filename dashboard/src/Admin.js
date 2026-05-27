@@ -13,6 +13,9 @@ let choicesInstances = []; // Para limpiar instancias de Choices.js
 let activeAdminSection = 'saneamiento'; // 'saneamiento' o 'usuarios'
 let usersList = [];
 
+let derivantesPage = 1;
+const derivantesPageSize = 100;
+
 // Función de navegación interna expuesta al enrutador (main.js)
 function adminNavigateTo(section) {
     activeAdminSection = section;
@@ -786,6 +789,7 @@ async function loadOS() { const { data } = await supabase.schema('silver_shared'
 async function loadIntermediarias() { const { data } = await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').select('*'); currentData.int = data || []; renderIntTable(document.getElementById('admin-int-content'), currentData.int); }
 async function loadSedes() { const { data } = await supabase.schema('silver_shared').from('silver_sedes_equivalencias').select('*'); currentData.sedes = data || []; renderSedesTable(document.getElementById('admin-sedes-content'), currentData.sedes); }
 async function loadDerivantes() {
+    derivantesPage = 1;
     const content = document.getElementById('admin-derivantes-content');
     content.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
     
@@ -847,6 +851,13 @@ async function loadDerivantes() {
 
 function renderDerivantesTable(container, data) {
     if (!container) return;
+
+    const totalPages = Math.ceil(data.length / derivantesPageSize) || 1;
+    if (derivantesPage > totalPages) derivantesPage = totalPages;
+    if (derivantesPage < 1) derivantesPage = 1;
+
+    const startIdx = (derivantesPage - 1) * derivantesPageSize;
+    const paginatedData = data.slice(startIdx, startIdx + derivantesPageSize);
     
     // Servicios unificados disponibles para asignar (extraídos del Excel de profesionales)
     const servicios = [
@@ -1009,7 +1020,7 @@ function renderDerivantesTable(container, data) {
                 </tr>
             </thead>
             <tbody>
-                ${data.map(item => `
+                ${paginatedData.map(item => `
                     <tr>
                         <td>${item.nombre_unificado ? '✅' : '⚠️'}</td>
                         <td><strong>${item.nombre_original}</strong></td>
@@ -1032,8 +1043,25 @@ function renderDerivantesTable(container, data) {
                 `).join('')}
             </tbody>
         </table>
+    </div>
+    <!-- Paginación de Derivantes -->
+    <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+        <div class="text-muted font-size-13">
+            Mostrando <strong>${startIdx + 1}</strong> a <strong>${Math.min(startIdx + paginatedData.length, data.length)}</strong> de <strong>${data.length}</strong> médicos
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" ${derivantesPage === 1 ? 'disabled' : ''} onclick="window.changeDerivantesPage(-1)">Anterior</button>
+            <span class="align-self-center">Página <strong>${derivantesPage}</strong> de <strong>${totalPages}</strong></span>
+            <button class="btn btn-sm btn-outline-secondary" ${derivantesPage === totalPages ? 'disabled' : ''} onclick="window.changeDerivantesPage(1)">Siguiente</button>
+        </div>
     </div>`;
 }
+
+window.changeDerivantesPage = (delta) => {
+    derivantesPage += delta;
+    const query = document.getElementById('search-input')?.value || '';
+    filterData(query);
+};
 
 function renderOSTable(container, data) {
     container.innerHTML = `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Estado</th><th>Nombre crudo</th><th>Nombre completo</th></tr></thead>
