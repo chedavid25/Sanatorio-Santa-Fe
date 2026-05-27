@@ -5,7 +5,7 @@
 -- Ejecutar en Supabase Dashboard > SQL Editor
 -- ============================================================
 
--- 1. OS por Derivante (mensual, para respetar el rango de fechas)
+-- 1. OS por Derivante (mensual)
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_os_por_derivante CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_os_por_derivante AS
 SELECT
@@ -47,32 +47,41 @@ CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_derivante_mes AS
 SELECT
     modulo,
     nombre_solicitante_limpio AS nombre_solicitante,
-    sede,
+    COALESCE(sede, 'OTRA') AS sede,
     anio,
     mes,
     COUNT(*)::integer AS total_estudios
 FROM diagnostico_imagenes.silver_detalle_di
 WHERE nombre_solicitante_limpio IS NOT NULL
-  AND sede IS NOT NULL
-GROUP BY modulo, nombre_solicitante_limpio, sede, anio, mes;
+GROUP BY modulo, nombre_solicitante_limpio, COALESCE(sede, 'OTRA'), anio, mes;
 
 CREATE INDEX idx_mv_sede_derivante_mes
     ON gold.gold_vw_di_sede_por_derivante_mes (nombre_solicitante, anio, mes);
 
 -- 4. Área por Derivante (mensual)
+-- area_tipo se calcula desde bronze_detalle_di (columna "area")
+-- y se cruza con silver_detalle_di para obtener nombre_solicitante_limpio
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_area_por_derivante CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_area_por_derivante AS
 SELECT
-    modulo,
-    nombre_solicitante_limpio AS nombre_solicitante,
-    area_tipo,
-    anio,
-    mes,
+    b.modulo,
+    sd.nombre_solicitante_limpio AS nombre_solicitante,
+    CASE
+        WHEN b.area = 'I' OR b.area IS NULL OR TRIM(b.area) = '' THEN 'Internado'
+        ELSE 'Ambulatorio'
+    END AS area_tipo,
+    EXTRACT(YEAR  FROM b.me_fecha)::integer AS anio,
+    EXTRACT(MONTH FROM b.me_fecha)::integer AS mes,
     COUNT(*)::integer AS cantidad
-FROM diagnostico_imagenes.silver_detalle_di
-WHERE nombre_solicitante_limpio IS NOT NULL
-  AND area_tipo IS NOT NULL
-GROUP BY modulo, nombre_solicitante_limpio, area_tipo, anio, mes;
+FROM diagnostico_imagenes.bronze_detalle_di b
+JOIN diagnostico_imagenes.silver_detalle_di sd ON sd.id = b.id
+WHERE sd.nombre_solicitante_limpio IS NOT NULL
+GROUP BY
+    b.modulo,
+    sd.nombre_solicitante_limpio,
+    CASE WHEN b.area = 'I' OR b.area IS NULL OR TRIM(b.area) = '' THEN 'Internado' ELSE 'Ambulatorio' END,
+    EXTRACT(YEAR  FROM b.me_fecha),
+    EXTRACT(MONTH FROM b.me_fecha);
 
 CREATE INDEX idx_mv_area_derivante
     ON gold.gold_vw_di_area_por_derivante (nombre_solicitante, anio, mes);
