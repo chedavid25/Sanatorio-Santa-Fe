@@ -1065,35 +1065,80 @@ window.updateSedeLimpia = async (id, value) => { await supabase.schema('silver_s
 
 window.updateDerivanteUnificado = async (nombre_original, value) => {
     const val = value.trim();
-    if (!val) {
-        // Si borramos el unificado, eliminamos la equivalencia
-        await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').delete().eq('nombre_original', nombre_original);
-    } else {
-        // Buscamos si ya existe la fila para hacer update, sino insert
-        const { data } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('id').eq('nombre_original', nombre_original).maybeSingle();
-        if (data) {
-            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').update({ nombre_unificado: val }).eq('id', data.id);
-        } else {
-            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').insert([{ nombre_original, nombre_unificado: val }]);
-        }
+    
+    // Actualizar datos locales en memoria
+    const item = currentData.derivantes.find(d => d.nombre_original === nombre_original);
+    if (item) {
+        item.nombre_unificado = val;
     }
-    loadDerivantes();
+
+    try {
+        if (!val) {
+            // Si borramos el unificado, eliminamos la equivalencia
+            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').delete().eq('nombre_original', nombre_original);
+        } else {
+            // Buscamos si ya existe la fila para hacer update, sino insert
+            const { data } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('id').eq('nombre_original', nombre_original).maybeSingle();
+            if (data) {
+                await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').update({ nombre_unificado: val }).eq('id', data.id);
+            } else {
+                await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').insert([{ nombre_original, nombre_unificado: val }]);
+            }
+        }
+        
+        // Actualizar icono de estado en la fila correspondiente en el DOM
+        const rows = document.querySelectorAll('#admin-derivantes-content tbody tr');
+        for (const row of rows) {
+            const origCell = row.cells[1];
+            if (origCell && origCell.textContent.trim() === nombre_original.trim()) {
+                row.cells[0].textContent = val ? '✅' : '⚠️';
+                break;
+            }
+        }
+    } catch (err) {
+        console.error('Error al unificar derivante:', err);
+    }
 };
 
 window.updateDerivanteServicio = async (nombre_original, value) => {
     const val = value || null;
-    const { data } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('id, nombre_unificado').eq('nombre_original', nombre_original).maybeSingle();
-    if (data) {
-        await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').update({ servicio_unificado: val }).eq('id', data.id);
-    } else {
-        // Si no tiene nombre unificado pero le asignamos servicio, usamos el original como unificado por defecto
-        await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').insert([{ 
-            nombre_original, 
-            nombre_unificado: nombre_original, 
-            servicio_unificado: val 
-        }]);
+    
+    // Actualizar datos locales en memoria
+    const item = currentData.derivantes.find(d => d.nombre_original === nombre_original);
+    if (item) {
+        item.servicio_unificado = val;
     }
-    loadDerivantes();
+
+    try {
+        const { data } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('id, nombre_unificado').eq('nombre_original', nombre_original).maybeSingle();
+        if (data) {
+            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').update({ servicio_unificado: val }).eq('id', data.id);
+        } else {
+            // Si no tiene nombre unificado pero le asignamos servicio, usamos el original como unificado por defecto
+            await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').insert([{ 
+                nombre_original, 
+                nombre_unificado: nombre_original, 
+                servicio_unificado: val 
+            }]);
+            
+            // Si insertó una equivalencia por defecto, actualizar el input y estado en el DOM
+            const rows = document.querySelectorAll('#admin-derivantes-content tbody tr');
+            for (const row of rows) {
+                const origCell = row.cells[1];
+                if (origCell && origCell.textContent.trim() === nombre_original.trim()) {
+                    const input = row.cells[2].querySelector('input');
+                    if (input && !input.value) {
+                        input.value = nombre_original;
+                    }
+                    row.cells[0].textContent = '✅';
+                    if (item) item.nombre_unificado = nombre_original;
+                    break;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error al actualizar servicio del derivante:', err);
+    }
 };
 
 // --- FUNCIONES GESTIÓN DE USUARIOS ---
