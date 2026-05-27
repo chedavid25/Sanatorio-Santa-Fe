@@ -59,17 +59,22 @@ async function withRetry(queryFn, retries = 3, delayMs = 600) {
 }
 
 export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Date().toISOString().slice(0, 4), 10)) {
-    // Definimos las 9 consultas como funciones diferidas
+    // Definimos las consultas como funciones diferidas
     const queries = {
-        resumen:                 gMes('gold_vw_di_resumen_por_mes',       'modulo,anio,mes,cantidad',                                     fromAnio, toAnio),
-        os_por_mes:              gMes('gold_vw_di_os_por_mes',             'modulo,os_nombre_limpio,anio,mes,cantidad',                   fromAnio, toAnio),
-        int_por_mes:             gMes('gold_vw_di_intermediaria_por_mes',  'modulo,intermediaria_limpia,anio,mes,cantidad',               fromAnio, toAnio),
-        practicas_por_mes:       gMes('gold_vw_di_practicas_por_mes',      'modulo,codigo_practica,nombre_practica,anio,mes,total_estudios', fromAnio, toAnio),
-        derivantes_por_mes:      gMes('gold_vw_di_derivantes_por_mes',     'modulo,nombre_solicitante,anio,mes,cantidad',                 fromAnio, toAnio),
-        os_por_intermediaria:    g('gold_vw_di_os_por_intermediaria',      'modulo,intermediaria_limpia,nombre_os,total_estudios'),
-        resumen_sede:            gMes('gold_vw_di_resumen_por_sede_mes',   'modulo,sede,anio,mes,total_estudios',                         fromAnio, toAnio),
-        area_por_mes:            gMes('gold_vw_di_area_por_mes',           'modulo,sede,anio,mes,area_tipo,cantidad',                     fromAnio, toAnio),
-        derivantes_por_servicio: g('gold_vw_di_derivantes_por_servicio',   'modulo,servicio_unificado,total_estudios'),
+        resumen:                 gMes('gold_vw_di_resumen_por_mes',         'modulo,anio,mes,cantidad',                                      fromAnio, toAnio),
+        os_por_mes:              gMes('gold_vw_di_os_por_mes',               'modulo,os_nombre_limpio,anio,mes,cantidad',                    fromAnio, toAnio),
+        int_por_mes:             gMes('gold_vw_di_intermediaria_por_mes',    'modulo,intermediaria_limpia,anio,mes,cantidad',                fromAnio, toAnio),
+        practicas_por_mes:       gMes('gold_vw_di_practicas_por_mes',        'modulo,codigo_practica,nombre_practica,anio,mes,total_estudios', fromAnio, toAnio),
+        derivantes_por_mes:      gMes('gold_vw_di_derivantes_por_mes',       'modulo,nombre_solicitante,anio,mes,cantidad',                  fromAnio, toAnio),
+        os_por_intermediaria:    g('gold_vw_di_os_por_intermediaria',        'modulo,intermediaria_limpia,nombre_os,total_estudios'),
+        resumen_sede:            gMes('gold_vw_di_resumen_por_sede_mes',     'modulo,sede,anio,mes,total_estudios',                          fromAnio, toAnio),
+        area_por_mes:            gMes('gold_vw_di_area_por_mes',             'modulo,sede,anio,mes,area_tipo,cantidad',                      fromAnio, toAnio),
+        derivantes_por_servicio: g('gold_vw_di_derivantes_por_servicio',     'modulo,servicio_unificado,total_estudios'),
+        // Cross-filter: derivante × dimensiones (para filtrar OS/Int/Sede/Área al seleccionar un médico)
+        os_por_derivante:        gMes('gold_vw_di_os_por_derivante',         'modulo,nombre_solicitante,nombre_os,anio,mes,cantidad',        fromAnio, toAnio),
+        int_por_derivante:       gMes('gold_vw_di_int_por_derivante',        'modulo,nombre_solicitante,intermediaria_limpia,anio,mes,cantidad', fromAnio, toAnio),
+        sede_por_derivante_mes:  gMes('gold_vw_di_sede_por_derivante_mes',   'modulo,nombre_solicitante,sede,anio,mes,total_estudios',       fromAnio, toAnio),
+        area_por_derivante:      gMes('gold_vw_di_area_por_derivante',       'modulo,nombre_solicitante,area_tipo,anio,mes,cantidad',        fromAnio, toAnio),
     };
 
     // Estructuramos la carga en lotes paralelos (máximo 3 consultas concurrentes)
@@ -108,9 +113,17 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
         derivantes_por_servicio: queries.derivantes_por_servicio,
     });
 
+    // Lote 4: Vistas de cross-filtering por derivante
+    const batch4Results = await runBatch({
+        os_por_derivante:       queries.os_por_derivante,
+        int_por_derivante:      queries.int_por_derivante,
+        sede_por_derivante_mes: queries.sede_por_derivante_mes,
+        area_por_derivante:     queries.area_por_derivante,
+    });
+
     // Combinar todos los resultados en un único mapa
     const resultsMap = {};
-    [...batch1Results, ...batch2Results, ...batch3Results].forEach(res => {
+    [...batch1Results, ...batch2Results, ...batch3Results, ...batch4Results].forEach(res => {
         resultsMap[res.key] = res.value;
     });
 
@@ -130,6 +143,11 @@ export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Da
         resumen_sede:            resultsMap.resumen_sede,
         area_por_mes:            resultsMap.area_por_mes,
         derivantes_por_servicio: resultsMap.derivantes_por_servicio,
+        // Cross-filtering por derivante
+        os_por_derivante:        resultsMap.os_por_derivante,
+        int_por_derivante:       resultsMap.int_por_derivante,
+        sede_por_derivante_mes:  resultsMap.sede_por_derivante_mes,
+        area_por_derivante:      resultsMap.area_por_derivante,
     };
 }
 
@@ -414,41 +432,73 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
         sparklines.Total[i] = permitidos.reduce((s, m) => s + (sparklines[m][i] || 0), 0);
     });
 
-    // ── OS distribution ───────────────────────────────────────────
+    // ── OS distribution ───────────────────────────────────────
+    // Si hay filtro de derivante, usamos la vista cruzada derivante×OS
     let osEntries, osCompMap = {};
-    const osFiltrado = (baseData.os_por_mes || []).filter(r => matchesCommonFilters(r, 'os'));
+    const osSourceData = filters.derivante
+        ? (baseData.os_por_derivante || []).filter(r =>
+            r.nombre_solicitante === filters.derivante.valor &&
+            matchesCommonFilters(r, 'os')
+          )
+        : (baseData.os_por_mes || []).filter(r => matchesCommonFilters(r, 'os'));
     const osMap = {};
-    osFiltrado.forEach(r => {
-        if (r.os_nombre_limpio) osMap[r.os_nombre_limpio] = (osMap[r.os_nombre_limpio] || 0) + r.cantidad;
+    osSourceData.forEach(r => {
+        const key = r.nombre_os || r.os_nombre_limpio;
+        if (key) osMap[key] = (osMap[key] || 0) + r.cantidad;
     });
     osEntries = Object.entries(osMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     if (compararActivo) {
-        (baseData.os_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'os')).forEach(r => {
-            if (r.os_nombre_limpio) osCompMap[r.os_nombre_limpio] = (osCompMap[r.os_nombre_limpio] || 0) + r.cantidad;
+        const osSourceComp = filters.derivante
+            ? (baseData.os_por_derivante || []).filter(r =>
+                r.nombre_solicitante === filters.derivante.valor &&
+                matchesCommonFiltersComp(r, 'os')
+              )
+            : (baseData.os_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'os'));
+        osSourceComp.forEach(r => {
+            const key = r.nombre_os || r.os_nombre_limpio;
+            if (key) osCompMap[key] = (osCompMap[key] || 0) + r.cantidad;
         });
     }
 
     // ── INT distribution ──────────────────────────────────────────
-    const intFiltrado = (baseData.int_por_mes || []).filter(r => matchesCommonFilters(r, 'intermediaria'));
+    // Si hay filtro de derivante, usamos la vista cruzada derivante×Intermediaria
+    const intSourceData = filters.derivante
+        ? (baseData.int_por_derivante || []).filter(r =>
+            r.nombre_solicitante === filters.derivante.valor &&
+            matchesCommonFilters(r, 'intermediaria')
+          )
+        : (baseData.int_por_mes || []).filter(r => matchesCommonFilters(r, 'intermediaria'));
     const intMap = {};
-    intFiltrado.forEach(r => {
+    intSourceData.forEach(r => {
         if (r.intermediaria_limpia) intMap[r.intermediaria_limpia] = (intMap[r.intermediaria_limpia] || 0) + r.cantidad;
     });
     const intEntries = Object.entries(intMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     const intCompMap = {};
     if (compararActivo) {
-        (baseData.int_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'intermediaria')).forEach(r => {
+        const intSourceComp = filters.derivante
+            ? (baseData.int_por_derivante || []).filter(r =>
+                r.nombre_solicitante === filters.derivante.valor &&
+                matchesCommonFiltersComp(r, 'intermediaria')
+              )
+            : (baseData.int_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'intermediaria'));
+        intSourceComp.forEach(r => {
             if (r.intermediaria_limpia) intCompMap[r.intermediaria_limpia] = (intCompMap[r.intermediaria_limpia] || 0) + r.cantidad;
         });
     }
 
     // ── Sede distribution ──────────────────────────────────────────
-    const sedeFiltrado = (baseData.resumen_sede || []).filter(r => matchesCommonFilters(r, 'sede'));
+    // Si hay filtro de derivante, usamos la vista cruzada derivante×Sede
+    const sedeSourceData = filters.derivante
+        ? (baseData.sede_por_derivante_mes || []).filter(r =>
+            r.nombre_solicitante === filters.derivante.valor &&
+            matchesCommonFilters(r, 'sede')
+          )
+        : (baseData.resumen_sede || []).filter(r => matchesCommonFilters(r, 'sede'));
     const sedeMap = {};
-    sedeFiltrado.forEach(r => {
-        if (r.sede) sedeMap[r.sede] = (sedeMap[r.sede] || 0) + r.total_estudios;
+    sedeSourceData.forEach(r => {
+        if (r.sede) sedeMap[r.sede] = (sedeMap[r.sede] || 0) + (r.total_estudios !== undefined ? r.total_estudios : r.cantidad);
     });
     const sedeEntries = Object.entries(sedeMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
@@ -511,9 +561,15 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     const servEntries = Object.entries(servMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     // ── Área distribution (Ambulatorio vs Internado) ──────────────────────
-    const areaFiltrado = (baseData.area_por_mes || []).filter(r => matchesCommonFilters(r));
+    // Si hay filtro de derivante, usamos la vista cruzada derivante×Área
+    const areaSourceData = filters.derivante
+        ? (baseData.area_por_derivante || []).filter(r =>
+            r.nombre_solicitante === filters.derivante.valor &&
+            matchesCommonFilters(r)
+          )
+        : (baseData.area_por_mes || []).filter(r => matchesCommonFilters(r));
     const areaMap = { Ambulatorio: 0, Internado: 0 };
-    areaFiltrado.forEach(r => {
+    areaSourceData.forEach(r => {
         if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
             areaMap[r.area_tipo] += r.cantidad;
         }
@@ -524,9 +580,14 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     let areaDataComp = null;
     if (compararActivo) {
-        const areaCompFiltrado = (baseData.area_por_mes || []).filter(r => matchesCommonFiltersComp(r));
+        const areaSourceComp = filters.derivante
+            ? (baseData.area_por_derivante || []).filter(r =>
+                r.nombre_solicitante === filters.derivante.valor &&
+                matchesCommonFiltersComp(r)
+              )
+            : (baseData.area_por_mes || []).filter(r => matchesCommonFiltersComp(r));
         const areaMapComp = { Ambulatorio: 0, Internado: 0 };
-        areaCompFiltrado.forEach(r => {
+        areaSourceComp.forEach(r => {
             if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
                 areaMapComp[r.area_tipo] += r.cantidad;
             }
