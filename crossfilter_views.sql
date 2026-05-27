@@ -1,5 +1,6 @@
 -- ============================================================
 -- Vistas Gold de apoyo para cross-filtering en el dashboard
+-- Utilizan la capa Silver para nombres saneados y unificados.
 -- Ejecutar en Supabase Dashboard > SQL Editor
 -- ============================================================
 
@@ -11,11 +12,12 @@ CREATE MATERIALIZED VIEW gold.gold_vw_di_practicas_agg AS
 SELECT
     modulo,
     codigo_practica,
-    nombre_practica,
+    nombre_practica_limpio AS nombre_practica,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di
+FROM diagnostico_imagenes.silver_detalle_di
 WHERE codigo_practica IS NOT NULL
-GROUP BY modulo, codigo_practica, nombre_practica;
+  AND es_estudio = true
+GROUP BY modulo, codigo_practica, nombre_practica_limpio;
 
 CREATE INDEX IF NOT EXISTS idx_mv_practicas_agg_total ON gold.gold_vw_di_practicas_agg (total_estudios DESC);
 
@@ -40,81 +42,65 @@ CREATE OR REPLACE VIEW gold.gold_vw_di_practicas_por_os AS
 SELECT
     modulo,
     codigo_practica,
-    nombre_practica,
+    nombre_practica_limpio AS nombre_practica,
     nombre_os,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di
+FROM diagnostico_imagenes.silver_detalle_di
 WHERE codigo_practica IS NOT NULL
   AND nombre_os IS NOT NULL
-GROUP BY modulo, codigo_practica, nombre_practica, nombre_os
+  AND es_estudio = true
+GROUP BY modulo, codigo_practica, nombre_practica_limpio, nombre_os
 ORDER BY modulo, codigo_practica, total_estudios DESC;
 
 -- Prácticas por Intermediaria (click en práctica → top intermediarias de esa práctica)
 CREATE OR REPLACE VIEW gold.gold_vw_di_practicas_por_intermediaria AS
 SELECT
-    b.modulo,
-    b.codigo_practica,
-    b.nombre_practica,
-    COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria)) AS intermediaria_limpia,
+    modulo,
+    codigo_practica,
+    nombre_practica_limpio AS nombre_practica,
+    intermediaria_limpia,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di b
-LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
-    ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
-WHERE b.codigo_practica IS NOT NULL
-  AND COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria)) IS NOT NULL
-GROUP BY b.modulo, b.codigo_practica, b.nombre_practica, COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria))
-ORDER BY b.modulo, b.codigo_practica, total_estudios DESC;
+FROM diagnostico_imagenes.silver_detalle_di
+WHERE codigo_practica IS NOT NULL
+  AND intermediaria_limpia IS NOT NULL
+  AND es_estudio = true
+GROUP BY modulo, codigo_practica, nombre_practica_limpio, intermediaria_limpia
+ORDER BY modulo, codigo_practica, total_estudios DESC;
 
 -- Prácticas por Mes (click en práctica → tendencia mensual de esa práctica)
-CREATE OR REPLACE VIEW gold.gold_vw_di_practicas_por_mes AS
+CREATE OR REPLACE VIEW gold.gold_vw_di_practicas_por_mes_backup AS
 SELECT
     modulo,
     codigo_practica,
-    nombre_practica,
-    EXTRACT(YEAR FROM me_fecha)::integer AS anio,
-    EXTRACT(MONTH FROM me_fecha)::integer AS mes,
+    nombre_practica_limpio AS nombre_practica,
+    anio,
+    mes,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di
+FROM diagnostico_imagenes.silver_detalle_di
 WHERE codigo_practica IS NOT NULL
-GROUP BY modulo, codigo_practica, nombre_practica, EXTRACT(YEAR FROM me_fecha), EXTRACT(MONTH FROM me_fecha)
+  AND es_estudio = true
+GROUP BY modulo, codigo_practica, nombre_practica_limpio, anio, mes
 ORDER BY modulo, codigo_practica, anio, mes;
 
 -- ============================================================
 -- Sede views for cross-filtering
 -- ============================================================
 
--- 1. Resumen mensual de estudios por sede
-DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
-DROP VIEW IF EXISTS gold.gold_vw_di_resumen_por_sede_mes CASCADE;
-CREATE MATERIALIZED VIEW gold.gold_vw_di_resumen_por_sede_mes AS
-SELECT
-    b.modulo,
-    COALESCE(s.sede, 'OTRA') AS sede,
-    EXTRACT(YEAR FROM b.me_fecha)::integer AS anio,
-    EXTRACT(MONTH FROM b.me_fecha)::integer AS mes,
-    COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di b
-LEFT JOIN silver_shared.silver_sedes_equivalencias s
-    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
-GROUP BY b.modulo, COALESCE(s.sede, 'OTRA'), EXTRACT(YEAR FROM b.me_fecha), EXTRACT(MONTH FROM b.me_fecha);
-
-CREATE INDEX idx_mv_resumen_sede_mes ON gold.gold_vw_di_resumen_por_sede_mes (sede);
-
+-- 1. Resumen mensual de estudios por sede (ya materializado en gold_views, mantenido por compatibilidad)
 -- 2. Prácticas por sede
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
 DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_practica CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_practica AS
 SELECT
     modulo,
-    COALESCE(s.sede, 'OTRA') AS sede,
+    sede,
     codigo_practica,
-    nombre_practica,
+    nombre_practica_limpio AS nombre_practica,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di b
-LEFT JOIN silver_shared.silver_sedes_equivalencias s
-    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
+FROM diagnostico_imagenes.silver_detalle_di
 WHERE codigo_practica IS NOT NULL
-GROUP BY modulo, COALESCE(s.sede, 'OTRA'), codigo_practica, nombre_practica;
+  AND es_estudio = true
+GROUP BY modulo, sede, codigo_practica, nombre_practica_limpio;
 
 CREATE INDEX idx_mv_sede_practica ON gold.gold_vw_di_sede_por_practica (sede, total_estudios DESC);
 
@@ -139,14 +125,12 @@ DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_os CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_os AS
 SELECT
     modulo,
-    COALESCE(s.sede, 'OTRA') AS sede,
+    sede,
     nombre_os,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di b
-LEFT JOIN silver_shared.silver_sedes_equivalencias s
-    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
+FROM diagnostico_imagenes.silver_detalle_di
 WHERE nombre_os IS NOT NULL
-GROUP BY modulo, COALESCE(s.sede, 'OTRA'), nombre_os;
+GROUP BY modulo, sede, nombre_os;
 
 CREATE INDEX idx_mv_sede_os ON gold.gold_vw_di_sede_por_os (sede, total_estudios DESC);
 
@@ -155,21 +139,17 @@ DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
 DROP VIEW IF EXISTS gold.gold_vw_di_sede_por_intermediaria CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_sede_por_intermediaria AS
 SELECT
-    b.modulo,
-    COALESCE(s.sede, 'OTRA') AS sede,
-    COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria)) AS intermediaria_limpia,
+    modulo,
+    sede,
+    intermediaria_limpia,
     COUNT(*)::integer AS total_estudios
-FROM diagnostico_imagenes.bronze_detalle_di b
-LEFT JOIN silver_shared.silver_sedes_equivalencias s
-    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
-LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
-    ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
-WHERE COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria)) IS NOT NULL
-GROUP BY b.modulo, COALESCE(s.sede, 'OTRA'), COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria));
+FROM diagnostico_imagenes.silver_detalle_di
+WHERE intermediaria_limpia IS NOT NULL
+GROUP BY modulo, sede, intermediaria_limpia;
 
 CREATE INDEX idx_mv_sede_intermediaria ON gold.gold_vw_di_sede_por_intermediaria (sede, total_estudios DESC);
 
--- 6. Resumen de estudios por servicio unificado del derivante (para el gráfico general del dashboard)
+-- 6. Resumen de estudios por servicio unificado del derivante
 DROP MATERIALIZED VIEW IF EXISTS gold.gold_vw_di_derivantes_por_servicio CASCADE;
 DROP VIEW IF EXISTS gold.gold_vw_di_derivantes_por_servicio CASCADE;
 CREATE MATERIALIZED VIEW gold.gold_vw_di_derivantes_por_servicio AS
@@ -202,8 +182,6 @@ GRANT SELECT ON gold.gold_vw_di_practicas_agg             TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_derivantes_agg            TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_practicas_por_os          TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_practicas_por_intermediaria TO anon, service_role;
-GRANT SELECT ON gold.gold_vw_di_practicas_por_mes         TO anon, service_role;
-GRANT SELECT ON gold.gold_vw_di_resumen_por_sede_mes      TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_sede_por_practica          TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_sede_por_derivante         TO anon, service_role;
 GRANT SELECT ON gold.gold_vw_di_sede_por_os                TO anon, service_role;

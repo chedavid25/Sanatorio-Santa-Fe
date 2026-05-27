@@ -68,7 +68,7 @@ SELECT
     b.area,
     b.sexo_paciente,
     b.localidad_paciente,
-    b.nombre_os,
+    COALESCE(os.os_nombre_limpio,    b.nombre_os)              AS nombre_os,
     b.intermediaria,
     b.matricula_solicitante,
     b.nombre_solicitante,
@@ -85,7 +85,9 @@ SELECT
     s.sede,
     COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria))    AS intermediaria_limpia,
     COALESCE(dev.nombre_unificado,   TRIM(b.nombre_solicitante)) AS nombre_solicitante_limpio,
-    dev.servicio_unificado                                     AS derivante_servicio_unificado
+    dev.servicio_unificado                                     AS derivante_servicio_unificado,
+    COALESCE(n.nombre_unificado,     TRIM(b.nombre_practica))  AS nombre_practica_limpio,
+    COALESCE(n.es_estudio,           true)                     AS es_estudio
 
 FROM diagnostico_imagenes.bronze_detalle_di b
 LEFT JOIN silver_shared.silver_sedes_equivalencias s
@@ -93,7 +95,12 @@ LEFT JOIN silver_shared.silver_sedes_equivalencias s
 LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
     ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
 LEFT JOIN silver_shared.silver_derivantes_equivalencias dev
-    ON TRIM(UPPER(b.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original));
+    ON TRIM(UPPER(b.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original))
+LEFT JOIN silver_shared.silver_codigos_nomenclador n
+    ON (CASE WHEN b.codigo_practica ~ '^\d+$' THEN b.codigo_practica::integer ELSE NULL END) = n.codigo
+    AND TRIM(b.servicio) = n.servicio
+LEFT JOIN silver_shared.silver_os_equivalencias os
+    ON TRIM(UPPER(b.nombre_os)) = TRIM(UPPER(os.os_nombre_crudo));
 
 GRANT SELECT ON diagnostico_imagenes.silver_detalle_di TO anon, service_role;
 
