@@ -96,9 +96,14 @@ LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
     ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
 LEFT JOIN silver_shared.silver_derivantes_equivalencias dev
     ON TRIM(UPPER(b.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original))
-LEFT JOIN silver_shared.silver_codigos_nomenclador n
-    ON (CASE WHEN b.codigo_practica ~ '^\d+$' THEN b.codigo_practica::integer ELSE NULL END) = n.codigo
-    AND TRIM(b.servicio) = n.servicio
+LEFT JOIN (
+    SELECT DISTINCT ON (codigo)
+        codigo,
+        nombre_unificado,
+        es_estudio
+    FROM silver_shared.silver_codigos_nomenclador
+    ORDER BY codigo
+) n ON (CASE WHEN TRIM(b.codigo_practica) ~ '^\d+$' THEN CAST(TRIM(b.codigo_practica) AS integer) ELSE NULL END) = n.codigo
 LEFT JOIN silver_shared.silver_os_equivalencias os
     ON TRIM(UPPER(b.nombre_os)) = TRIM(UPPER(os.os_nombre_crudo));
 
