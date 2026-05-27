@@ -6,9 +6,20 @@ const COLOR_MAP = {
     Eco: '#2a8ed2',
 };
 
+let activeMainChart = null;
+
 export function renderMainChart(containerId, trend, _filter) {
     const container = document.getElementById(containerId);
     if (!container) return;
+
+    if (activeMainChart) {
+        try {
+            activeMainChart.destroy();
+        } catch (e) {
+            console.warn('[MainChart] Error destruyendo gráfico de tendencia:', e);
+        }
+        activeMainChart = null;
+    }
 
     const series = trend.series || [];
     const isComparison = series.length >= 2;
@@ -148,5 +159,9 @@ export function renderMainChart(containerId, trend, _filter) {
     }
 
     container.innerHTML = '';
-    new ApexCharts(container, options).render();
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        activeMainChart = new ApexChartsObj(container, options);
+        activeMainChart.render();
+    }
 }

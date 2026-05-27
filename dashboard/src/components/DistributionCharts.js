@@ -29,6 +29,20 @@ const COMP_STYLES = {
     },
 };
 
+// Registro de instancias activas de ApexCharts en este módulo para su correcta destrucción
+const activeCharts = {};
+
+function destroyChartInstance(key) {
+    if (activeCharts[key]) {
+        try {
+            activeCharts[key].destroy();
+        } catch (e) {
+            console.warn(`[DistributionCharts] Error destruyendo gráfico '${key}':`, e);
+        }
+        activeCharts[key] = null;
+    }
+}
+
 export function renderDistributionCharts(os, int, sede, area) {
     renderOSChart(os);
     renderIntChart(int);
@@ -40,14 +54,17 @@ function renderOSChart(os) {
     const container = document.getElementById('os-distribution-chart');
     if (!container) return;
 
+    destroyChartInstance('os');
+
     if (!os || !os.labels || !os.labels.length) {
         container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de obras sociales.</p>';
         return;
     }
 
+    let options;
     // Comparison mode: grouped horizontal bars
     if (os.dataComp) {
-        const options = {
+        options = {
             series: [
                 { name: 'Período actual', data: os.data },
                 { name: 'Período anterior', data: os.dataComp },
@@ -78,84 +95,88 @@ function renderOSChart(os) {
             },
             ...COMP_STYLES,
         };
-        container.innerHTML = '';
-        new ApexCharts(container, options).render();
-        return;
+    } else {
+        // Normal mode: horizontal bar
+        const maxVal = Math.max(...os.data);
+        options = {
+            series: [{ name: 'Estudios', data: os.data }],
+            chart: {
+                type: 'bar',
+                height: Math.max(300, os.labels.length * 36),
+                toolbar: { show: false },
+                animations: { enabled: true, speed: 500 },
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4,
+                    barHeight: '62%',
+                    distributed: true,
+                    dataLabels: { position: 'top' },
+                },
+            },
+            colors: BLUES.slice(0, os.labels.length),
+            dataLabels: {
+                enabled: true,
+                textAnchor: 'start',
+                style: {
+                    fontSize: '12px',
+                    fontFamily: 'Outfit, sans-serif',
+                    fontWeight: '600',
+                    colors: ['#374151'],
+                },
+                formatter: val => val.toLocaleString(),
+                offsetX: 6,
+                dropShadow: { enabled: false },
+            },
+            xaxis: {
+                categories: os.labels,
+                max: maxVal * 1.18,
+                labels: { show: false },
+            },
+            yaxis: {
+                labels: {
+                    style: { colors: '#555', fontSize: '10px', fontFamily: 'Outfit, sans-serif' },
+                    maxWidth: 260,
+                },
+            },
+            grid: {
+                borderColor: '#eff2f7',
+                xaxis: { lines: { show: false } },
+                yaxis: { lines: { show: false } },
+                padding: { left: 20, right: 20 },
+            },
+            legend: { show: false },
+            tooltip: {
+                theme: 'light',
+                y: { formatter: val => val.toLocaleString() + ' estudios' },
+            },
+        };
     }
 
-    // Normal mode: horizontal bar
-    const maxVal = Math.max(...os.data);
-    const options = {
-        series: [{ name: 'Estudios', data: os.data }],
-        chart: {
-            type: 'bar',
-            height: Math.max(300, os.labels.length * 36),
-            toolbar: { show: false },
-            animations: { enabled: true, speed: 500 },
-        },
-        plotOptions: {
-            bar: {
-                horizontal: true,
-                borderRadius: 4,
-                barHeight: '62%',
-                distributed: true,
-                dataLabels: { position: 'top' },
-            },
-        },
-        colors: BLUES.slice(0, os.labels.length),
-        dataLabels: {
-            enabled: true,
-            textAnchor: 'start',
-            style: {
-                fontSize: '12px',
-                fontFamily: 'Outfit, sans-serif',
-                fontWeight: '600',
-                colors: ['#374151'],
-            },
-            formatter: val => val.toLocaleString(),
-            offsetX: 6,
-            dropShadow: { enabled: false },
-        },
-        xaxis: {
-            categories: os.labels,
-            max: maxVal * 1.18,
-            labels: { show: false },
-        },
-        yaxis: {
-            labels: {
-                style: { colors: '#555', fontSize: '10px', fontFamily: 'Outfit, sans-serif' },
-                maxWidth: 260,
-            },
-        },
-        grid: {
-            borderColor: '#eff2f7',
-            xaxis: { lines: { show: false } },
-            yaxis: { lines: { show: false } },
-            padding: { left: 20, right: 20 },
-        },
-        legend: { show: false },
-        tooltip: {
-            theme: 'light',
-            y: { formatter: val => val.toLocaleString() + ' estudios' },
-        },
-    };
-
     container.innerHTML = '';
-    new ApexCharts(container, options).render();
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        activeCharts['os'] = new ApexChartsObj(container, options);
+        activeCharts['os'].render();
+    }
 }
 
 function renderIntChart(int) {
     const container = document.getElementById('int-distribution-chart');
     if (!container) return;
 
+    destroyChartInstance('int');
+
     if (!int || !int.labels || !int.labels.length) {
         container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de intermediarias.</p>';
         return;
     }
 
+    let options;
     // Comparison mode: grouped horizontal bars
     if (int.dataComp) {
-        const options = {
+        options = {
             series: [
                 { name: 'Período actual', data: int.data },
                 { name: 'Período anterior', data: int.dataComp },
@@ -186,93 +207,98 @@ function renderIntChart(int) {
             },
             ...COMP_STYLES,
         };
-        container.innerHTML = '';
-        new ApexCharts(container, options).render();
-        return;
-    }
-
-    // Normal mode: donut with click-to-filter
-    const options = {
-        series: int.data,
-        chart: {
-            type: 'donut',
-            height: 340,
-            animations: { enabled: true },
-            events: {
-                dataPointSelection: (_event, _chartContext, config) => {
-                    const idx = config.dataPointIndex;
-                    if (idx !== undefined && idx !== -1) {
-                        const label = int.labels[idx];
-                        setFilter('intermediaria', label, label);
+    } else {
+        // Normal mode: donut with click-to-filter
+        options = {
+            series: int.data,
+            chart: {
+                type: 'donut',
+                height: 340,
+                animations: { enabled: true },
+                events: {
+                    dataPointSelection: (_event, _chartContext, config) => {
+                        const idx = config.dataPointIndex;
+                        if (idx !== undefined && idx !== -1) {
+                            const label = int.labels[idx];
+                            setFilter('intermediaria', label, label);
+                        }
                     }
                 }
-            }
-        },
-        labels: int.labels,
-        colors: BLUES.slice(0, int.labels.length),
-        legend: {
-            position: 'bottom',
-            fontSize: '12px',
-            fontFamily: 'Outfit, sans-serif',
-            labels: { colors: '#555' },
-            formatter: (label, opts) => {
-                const val = opts.w.globals.series[opts.seriesIndex];
-                return `${label}: <b>${val.toLocaleString()}</b>`;
             },
-            itemMargin: { horizontal: 6, vertical: 3 },
-        },
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '68%',
-                    labels: {
-                        show: true,
-                        name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
-                        value: {
+            labels: int.labels,
+            colors: BLUES.slice(0, int.labels.length),
+            legend: {
+                position: 'bottom',
+                fontSize: '12px',
+                fontFamily: 'Outfit, sans-serif',
+                labels: { colors: '#555' },
+                formatter: (label, opts) => {
+                    const val = opts.w.globals.series[opts.seriesIndex];
+                    return `${label}: <b>${val.toLocaleString()}</b>`;
+                },
+                itemMargin: { horizontal: 6, vertical: 3 },
+            },
+            plotOptions: {
+                customScale: 0.9,
+                pie: {
+                    donut: {
+                        size: '68%',
+                        labels: {
                             show: true,
-                            fontSize: '18px',
-                            fontFamily: 'Outfit, sans-serif',
-                            fontWeight: '700',
-                            color: '#004884',
-                            formatter: val => Number(val).toLocaleString(),
-                        },
-                        total: {
-                            show: true,
-                            showAlways: true,
-                            label: 'Total',
-                            fontSize: '13px',
-                            fontFamily: 'Outfit, sans-serif',
-                            color: '#858d98',
-                            formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                            name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
+                            value: {
+                                show: true,
+                                fontSize: '18px',
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: '700',
+                                color: '#004884',
+                                formatter: val => Number(val).toLocaleString(),
+                            },
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: 'Total',
+                                fontSize: '13px',
+                                fontFamily: 'Outfit, sans-serif',
+                                color: '#858d98',
+                                formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                            },
                         },
                     },
                 },
             },
-        },
-        dataLabels: { enabled: false },
-        stroke: { show: true, width: 2, colors: ['#fff'] },
-        tooltip: {
-            theme: 'light',
-            y: { formatter: val => val.toLocaleString() + ' estudios' },
-        },
-    };
+            dataLabels: { enabled: false },
+            stroke: { show: true, width: 2, colors: ['#fff'] },
+            tooltip: {
+                theme: 'light',
+                y: { formatter: val => val.toLocaleString() + ' estudios' },
+            },
+        };
+    }
 
     container.innerHTML = '';
-    new ApexCharts(container, options).render();
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        activeCharts['int'] = new ApexChartsObj(container, options);
+        activeCharts['int'].render();
+    }
 }
 
 function renderSedeChart(sede) {
     const container = document.getElementById('sede-distribution-chart');
     if (!container) return;
 
+    destroyChartInstance('sede');
+
     if (!sede || !sede.labels || !sede.labels.length) {
         container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de sedes.</p>';
         return;
     }
 
+    let options;
     // Comparison mode: grouped horizontal bars (actual vs período anterior)
     if (sede.dataComp) {
-        const options = {
+        options = {
             series: [
                 { name: 'Período actual', data: sede.data },
                 { name: 'Período anterior', data: sede.dataComp },
@@ -303,83 +329,87 @@ function renderSedeChart(sede) {
             },
             ...COMP_STYLES,
         };
-        container.innerHTML = '';
-        new ApexCharts(container, options).render();
-        return;
-    }
-
-    // Normal mode: donut with click-to-filter
-    const options = {
-        series: sede.data,
-        chart: {
-            type: 'donut',
-            height: 340,
-            animations: { enabled: true },
-            events: {
-                dataPointSelection: (_event, _chartContext, config) => {
-                    const idx = config.dataPointIndex;
-                    if (idx !== undefined && idx !== -1) {
-                        setFilter('sede', sede.labels[idx], sede.labels[idx]);
+    } else {
+        // Normal mode: donut with click-to-filter
+        options = {
+            series: sede.data,
+            chart: {
+                type: 'donut',
+                height: 340,
+                animations: { enabled: true },
+                events: {
+                    dataPointSelection: (_event, _chartContext, config) => {
+                        const idx = config.dataPointIndex;
+                        if (idx !== undefined && idx !== -1) {
+                            setFilter('sede', sede.labels[idx], sede.labels[idx]);
+                        }
                     }
                 }
-            }
-        },
-        labels: sede.labels,
-        colors: BLUES.slice(0, sede.labels.length),
-        legend: {
-            position: 'bottom',
-            fontSize: '12px',
-            fontFamily: 'Outfit, sans-serif',
-            labels: { colors: '#555' },
-            formatter: (label, opts) => {
-                const val = opts.w.globals.series[opts.seriesIndex];
-                return `${label}: <b>${val.toLocaleString()}</b>`;
             },
-            itemMargin: { horizontal: 6, vertical: 3 },
-        },
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '68%',
-                    labels: {
-                        show: true,
-                        name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
-                        value: {
+            labels: sede.labels,
+            colors: BLUES.slice(0, sede.labels.length),
+            legend: {
+                position: 'bottom',
+                fontSize: '12px',
+                fontFamily: 'Outfit, sans-serif',
+                labels: { colors: '#555' },
+                formatter: (label, opts) => {
+                    const val = opts.w.globals.series[opts.seriesIndex];
+                    return `${label}: <b>${val.toLocaleString()}</b>`;
+                },
+                itemMargin: { horizontal: 6, vertical: 3 },
+            },
+            plotOptions: {
+                customScale: 0.9,
+                pie: {
+                    donut: {
+                        size: '68%',
+                        labels: {
                             show: true,
-                            fontSize: '18px',
-                            fontFamily: 'Outfit, sans-serif',
-                            fontWeight: '700',
-                            color: '#004884',
-                            formatter: val => Number(val).toLocaleString(),
-                        },
-                        total: {
-                            show: true,
-                            showAlways: true,
-                            label: 'Total',
-                            fontSize: '13px',
-                            fontFamily: 'Outfit, sans-serif',
-                            color: '#858d98',
-                            formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                            name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
+                            value: {
+                                show: true,
+                                fontSize: '18px',
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: '700',
+                                color: '#004884',
+                                formatter: val => Number(val).toLocaleString(),
+                            },
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: 'Total',
+                                fontSize: '13px',
+                                fontFamily: 'Outfit, sans-serif',
+                                color: '#858d98',
+                                formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                            },
                         },
                     },
                 },
             },
-        },
-        dataLabels: { enabled: false },
-        stroke: { show: true, width: 2, colors: ['#fff'] },
-        tooltip: {
-            theme: 'light',
-            y: { formatter: val => val.toLocaleString() + ' estudios' },
-        },
-    };
+            dataLabels: { enabled: false },
+            stroke: { show: true, width: 2, colors: ['#fff'] },
+            tooltip: {
+                theme: 'light',
+                y: { formatter: val => val.toLocaleString() + ' estudios' },
+            },
+        };
+    }
 
     container.innerHTML = '';
-    new ApexCharts(container, options).render();
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        activeCharts['sede'] = new ApexChartsObj(container, options);
+        activeCharts['sede'].render();
+    }
 }
 
 function renderAreaChart(area) {
     const container = document.getElementById('area-distribution-chart');
     if (!container) return;
+
+    destroyChartInstance('area');
 
     if (!area || !area.labels || !area.labels.length || (!area.data[0] && !area.data[1])) {
         container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de áreas.</p>';
@@ -387,10 +417,11 @@ function renderAreaChart(area) {
     }
 
     const AREA_COLORS = ['#0072bc', '#ef9f27'];
+    let options;
 
     // Comparison mode: grouped horizontal bars
     if (area.dataComp) {
-        const options = {
+        options = {
             series: [
                 { name: 'Período actual', data: area.data },
                 { name: 'Período anterior', data: area.dataComp },
@@ -422,75 +453,79 @@ function renderAreaChart(area) {
             colors: AREA_COLORS,
             ...COMP_STYLES,
         };
-        container.innerHTML = '';
-        new ApexCharts(container, options).render();
-        return;
-    }
-
-    // Normal mode: donut
-    const options = {
-        series: area.data,
-        chart: {
-            type: 'donut',
-            height: 340,
-            animations: { enabled: true }
-        },
-        labels: area.labels,
-        colors: AREA_COLORS,
-        legend: {
-            position: 'bottom',
-            fontSize: '12px',
-            fontFamily: 'Outfit, sans-serif',
-            labels: { colors: '#555' },
-            formatter: (label, opts) => {
-                const val = opts.w.globals.series[opts.seriesIndex];
-                return `${label}: <b>${val.toLocaleString()}</b>`;
+    } else {
+        // Normal mode: donut
+        options = {
+            series: area.data,
+            chart: {
+                type: 'donut',
+                height: 340,
+                animations: { enabled: true }
             },
-            itemMargin: { horizontal: 6, vertical: 3 },
-        },
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '68%',
-                    labels: {
-                        show: true,
-                        name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
-                        value: {
+            labels: area.labels,
+            colors: AREA_COLORS,
+            legend: {
+                position: 'bottom',
+                fontSize: '12px',
+                fontFamily: 'Outfit, sans-serif',
+                labels: { colors: '#555' },
+                formatter: (label, opts) => {
+                    const val = opts.w.globals.series[opts.seriesIndex];
+                    return `${label}: <b>${val.toLocaleString()}</b>`;
+                },
+                itemMargin: { horizontal: 6, vertical: 3 },
+            },
+            plotOptions: {
+                customScale: 0.9,
+                pie: {
+                    donut: {
+                        size: '68%',
+                        labels: {
                             show: true,
-                            fontSize: '18px',
-                            fontFamily: 'Outfit, sans-serif',
-                            fontWeight: '700',
-                            color: '#004884',
-                            formatter: val => Number(val).toLocaleString(),
-                        },
-                        total: {
-                            show: true,
-                            showAlways: true,
-                            label: 'Total',
-                            fontSize: '13px',
-                            fontFamily: 'Outfit, sans-serif',
-                            color: '#858d98',
-                            formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                            name: { show: true, fontSize: '13px', fontFamily: 'Outfit, sans-serif', color: '#858d98' },
+                            value: {
+                                show: true,
+                                fontSize: '18px',
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: '700',
+                                color: '#004884',
+                                formatter: val => Number(val).toLocaleString(),
+                            },
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: 'Total',
+                                fontSize: '13px',
+                                fontFamily: 'Outfit, sans-serif',
+                                color: '#858d98',
+                                formatter: w => w.globals.seriesTotals.reduce((a, b) => a + b, 0).toLocaleString(),
+                            },
                         },
                     },
                 },
             },
-        },
-        dataLabels: { enabled: false },
-        stroke: { show: true, width: 2, colors: ['#fff'] },
-        tooltip: {
-            theme: 'light',
-            y: { formatter: val => val.toLocaleString() + ' estudios' },
-        },
-    };
+            dataLabels: { enabled: false },
+            stroke: { show: true, width: 2, colors: ['#fff'] },
+            tooltip: {
+                theme: 'light',
+                y: { formatter: val => val.toLocaleString() + ' estudios' },
+            },
+        };
+    }
 
     container.innerHTML = '';
-    new ApexCharts(container, options).render();
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        activeCharts['area'] = new ApexChartsObj(container, options);
+        activeCharts['area'].render();
+    }
 }
 
 export function renderServicioDerivante(serv, onClickServicio) {
     const container = document.getElementById('serv-distribution-chart');
     if (!container) return;
+
+    destroyChartInstance('serv');
 
     if (!serv || !serv.labels || !serv.labels.length) {
         container.innerHTML = '<p class="text-muted text-center py-4">Sin datos de servicios. Asigná servicios a los médicos derivantes en el panel de Saneamiento.</p>';
@@ -567,5 +602,9 @@ export function renderServicioDerivante(serv, onClickServicio) {
     };
 
     container.innerHTML = '';
-    new ApexCharts(container, options).render();
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        activeCharts['serv'] = new ApexChartsObj(container, options);
+        activeCharts['serv'].render();
+    }
 }

@@ -10,65 +10,106 @@ export const MODULO_LABELS = {
 };
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-const g = (view, cols) => supabase.schema('gold').from(view).select(cols);
+const g = (view, cols) => () => supabase.schema('gold').from(view).select(cols);
 // Helper: query a _por_mes view with a server-side year range filter.
-// This bypasses the PostgREST max-rows limit (usually 1000) entirely:
-// instead of fetching everything and slicing client-side, we only fetch
-// the rows that fall within [fromAnio, toAnio] (inclusive).
-const gMes = (view, cols, fromAnio, toAnio) =>
+// Returns a function that returns the query promise so it can be deferred/retried.
+const gMes = (view, cols, fromAnio, toAnio) => () =>
     supabase.schema('gold').from(view).select(cols)
         .gte('anio', fromAnio)
         .lte('anio', toAnio)
         .limit(50000);   // safety cap; never reached in practice
 
-export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Date().toISOString().slice(0, 4), 10)) {
-    const queries = [
-        gMes('gold_vw_di_resumen_por_mes',       'modulo,anio,mes,cantidad',                                     fromAnio, toAnio),
-        gMes('gold_vw_di_os_por_mes',             'modulo,os_nombre_limpio,anio,mes,cantidad',                   fromAnio, toAnio),
-        gMes('gold_vw_di_intermediaria_por_mes',  'modulo,intermediaria_limpia,anio,mes,cantidad',               fromAnio, toAnio),
-        gMes('gold_vw_di_practicas_por_mes',      'modulo,codigo_practica,nombre_practica,anio,mes,total_estudios', fromAnio, toAnio),
-        gMes('gold_vw_di_derivantes_por_mes',     'modulo,nombre_solicitante,anio,mes,cantidad',                 fromAnio, toAnio),
-        g('gold_vw_di_os_por_intermediaria',      'modulo,intermediaria_limpia,nombre_os,total_estudios'),
-        gMes('gold_vw_di_resumen_por_sede_mes',   'modulo,sede,anio,mes,total_estudios',                         fromAnio, toAnio),
-        gMes('gold_vw_di_area_por_mes',           'modulo,sede,anio,mes,area_tipo,cantidad',                     fromAnio, toAnio),
-        g('gold_vw_di_derivantes_por_servicio',   'modulo,servicio_unificado,total_estudios'),
-    ];
-
-    const results = await Promise.allSettled(queries);
-
-    // Log errors for any failed view (silently continue with empty arrays)
-    const VIEW_NAMES = [
-        'resumen_por_mes', 'os_por_mes', 'intermediaria_por_mes',
-        'practicas_por_mes', 'derivantes_por_mes', 'os_por_intermediaria', 'resumen_por_sede_mes', 'area_por_mes', 'derivantes_por_servicio'
-    ];
-    results.forEach((r, i) => {
-        if (r.status === 'rejected') {
-            console.warn(`[fetchAllBaseData] Vista '${VIEW_NAMES[i]}' falló:`, r.reason);
-        } else if (r.value?.error) {
-            console.warn(`[fetchAllBaseData] Vista '${VIEW_NAMES[i]}' retornó error:`, r.value.error);
+// Helper robusto para ejecutar consultas con reintentos y retroceso exponencial
+async function withRetry(queryFn, retries = 3, delayMs = 600) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await queryFn();
+            if (res && res.error) {
+                throw res.error;
+            }
+            return res.data || [];
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.warn(`[Supabase Query] Falló, reintentando en ${delayMs}ms... (Intento ${i + 1}/${retries}). Error:`, err);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            delayMs *= 1.8; // Backoff exponencial
         }
+    }
+}
+
+export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Date().toISOString().slice(0, 4), 10)) {
+    // Definimos las 9 consultas como funciones diferidas
+    const queries = {
+        resumen:                 gMes('gold_vw_di_resumen_por_mes',       'modulo,anio,mes,cantidad',                                     fromAnio, toAnio),
+        os_por_mes:              gMes('gold_vw_di_os_por_mes',             'modulo,os_nombre_limpio,anio,mes,cantidad',                   fromAnio, toAnio),
+        int_por_mes:             gMes('gold_vw_di_intermediaria_por_mes',  'modulo,intermediaria_limpia,anio,mes,cantidad',               fromAnio, toAnio),
+        practicas_por_mes:       gMes('gold_vw_di_practicas_por_mes',      'modulo,codigo_practica,nombre_practica,anio,mes,total_estudios', fromAnio, toAnio),
+        derivantes_por_mes:      gMes('gold_vw_di_derivantes_por_mes',     'modulo,nombre_solicitante,anio,mes,cantidad',                 fromAnio, toAnio),
+        os_por_intermediaria:    g('gold_vw_di_os_por_intermediaria',      'modulo,intermediaria_limpia,nombre_os,total_estudios'),
+        resumen_sede:            gMes('gold_vw_di_resumen_por_sede_mes',   'modulo,sede,anio,mes,total_estudios',                         fromAnio, toAnio),
+        area_por_mes:            gMes('gold_vw_di_area_por_mes',           'modulo,sede,anio,mes,area_tipo,cantidad',                     fromAnio, toAnio),
+        derivantes_por_servicio: g('gold_vw_di_derivantes_por_servicio',   'modulo,servicio_unificado,total_estudios'),
+    };
+
+    // Estructuramos la carga en lotes paralelos (máximo 3 consultas concurrentes)
+    // para no saturar las conexiones de Supabase/PostgREST.
+    const runBatch = async (batchQueries) => {
+        const batchKeys = Object.keys(batchQueries);
+        const batchPromises = batchKeys.map(key => 
+            withRetry(batchQueries[key])
+                .then(data => ({ key, status: 'fulfilled', value: data }))
+                .catch(err => {
+                    console.error(`Error crítico cargando vista '${key}':`, err);
+                    return { key, status: 'rejected', reason: err, value: [] };
+                })
+        );
+        return Promise.all(batchPromises);
+    };
+
+    // Lote 1: Datos críticos mensuales
+    const batch1Results = await runBatch({
+        resumen: queries.resumen,
+        os_por_mes: queries.os_por_mes,
+        int_por_mes: queries.int_por_mes,
     });
 
-    // If the critical resumen view fails, throw so the UI shows an error
-    if (results[0].status === 'rejected' || results[0].value?.error) {
-        throw results[0].reason || results[0].value?.error;
+    // Lote 2: Detalles de prácticas, derivantes y sedes
+    const batch2Results = await runBatch({
+        practicas_por_mes: queries.practicas_por_mes,
+        derivantes_por_mes: queries.derivantes_por_mes,
+        resumen_sede: queries.resumen_sede,
+    });
+
+    // Lote 3: Vistas estáticas y auxiliares
+    const batch3Results = await runBatch({
+        os_por_intermediaria: queries.os_por_intermediaria,
+        area_por_mes: queries.area_por_mes,
+        derivantes_por_servicio: queries.derivantes_por_servicio,
+    });
+
+    // Combinar todos los resultados en un único mapa
+    const resultsMap = {};
+    [...batch1Results, ...batch2Results, ...batch3Results].forEach(res => {
+        resultsMap[res.key] = res.value;
+    });
+
+    // Si la vista crítica resumen falló tras los reintentos, lanzamos error general
+    const resumenRes = batch1Results.find(r => r.key === 'resumen');
+    if (resumenRes && resumenRes.status === 'rejected') {
+        throw resumenRes.reason;
     }
 
-    const rows = results.map(r => r.status === 'fulfilled' ? (r.value.data || []) : []);
-
-    const [
-        resumen,
-        os_por_mes,
-        int_por_mes,
-        practicas_por_mes,
-        derivantes_por_mes,
-        os_por_intermediaria,
-        resumen_sede,
-        area_por_mes,
-        derivantes_por_servicio,
-    ] = rows;
-
-    return { resumen, os_por_mes, int_por_mes, practicas_por_mes, derivantes_por_mes, os_por_intermediaria, resumen_sede, area_por_mes, derivantes_por_servicio };
+    return {
+        resumen:                 resultsMap.resumen,
+        os_por_mes:              resultsMap.os_por_mes,
+        int_por_mes:             resultsMap.int_por_mes,
+        practicas_por_mes:       resultsMap.practicas_por_mes,
+        derivantes_por_mes:      resultsMap.derivantes_por_mes,
+        os_por_intermediaria:    resultsMap.os_por_intermediaria,
+        resumen_sede:            resultsMap.resumen_sede,
+        area_por_mes:            resultsMap.area_por_mes,
+        derivantes_por_servicio: resultsMap.derivantes_por_servicio,
+    };
 }
 
 export async function fetchPracticaDetail(codigoPractica, fromAnio = null, toAnio = null) {

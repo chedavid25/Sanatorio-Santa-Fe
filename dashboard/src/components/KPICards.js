@@ -2,6 +2,8 @@ import { MODULOS, MODULO_COLORS, MODULO_LABELS } from '../lib/data'
 import { setFilter, clearFilter, hasPermission } from '../lib/state'
 
 let _renderGen = 0;
+// Registro de sparklines activos de ApexCharts para su destrucción
+let activeSparklines = {};
 
 const MODULO_ICONS = {
     Video: 'bx bx-video',
@@ -37,6 +39,19 @@ export function renderKPICards(container, kpi, filter) {
     // Determinar clase de grid dinámicamente según la cantidad de columnas (Total + módulos permitidos)
     const colsCount = 1 + modulosPermitidos.length;
     const gridClass = `row row-cols-1 row-cols-md-2 row-cols-xl-${Math.min(colsCount, 5)} g-3 mb-3`;
+
+    // Destruir formalmente todas las instancias de sparklines anteriores
+    Object.keys(activeSparklines).forEach(key => {
+        if (activeSparklines[key]) {
+            try {
+                activeSparklines[key].destroy();
+            } catch (e) {
+                console.warn(`[KPICards] Error al destruir sparkline '${key}':`, e);
+            }
+            activeSparklines[key] = null;
+        }
+    });
+    activeSparklines = {};
 
     container.innerHTML = `
     <div class="${gridClass}">
@@ -94,7 +109,8 @@ export function renderKPICards(container, kpi, filter) {
     });
 
     // ── Sparklines — defer until after layout ─────────────────────
-    if (!window.ApexCharts) return;
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (!ApexChartsObj) return;
     const gen = ++_renderGen;
     requestAnimationFrame(() => {
         if (gen !== _renderGen) return;
@@ -110,17 +126,23 @@ export function renderKPICards(container, kpi, filter) {
 function renderSparkline(id, data, color) {
     const el = document.getElementById(id);
     if (!el || !data.length || el.offsetWidth === 0) return;
-    new window.ApexCharts(el, {
-        chart: {
-            type: 'line',
-            height: 36,
-            width: el.offsetWidth,
-            sparkline: { enabled: true },
-            animations: { enabled: false },
-        },
-        stroke: { curve: 'smooth', width: 2 },
-        colors: [color],
-        series: [{ data }],
-        tooltip: { enabled: false },
-    }).render();
+    
+    const ApexChartsObj = window.ApexCharts || globalThis.ApexCharts;
+    if (ApexChartsObj) {
+        const chart = new ApexChartsObj(el, {
+            chart: {
+                type: 'line',
+                height: 36,
+                width: el.offsetWidth,
+                sparkline: { enabled: true },
+                animations: { enabled: false },
+            },
+            stroke: { curve: 'smooth', width: 2 },
+            colors: [color],
+            series: [{ data }],
+            tooltip: { enabled: false },
+        });
+        chart.render();
+        activeSparklines[id] = chart;
+    }
 }

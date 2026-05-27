@@ -312,6 +312,9 @@ export function renderDashboard(container, session) {
 
     // ── State ──────────────────────────────────────────────────
     let cachedBaseData = null;
+    let cachedMinAnio = null;
+    let cachedMaxAnio = null;
+    let currentLoadGen = 0;
     let compararActivo = false;
     let anioComparacion = String(currentYear - 1);
 
@@ -591,6 +594,20 @@ export function renderDashboard(container, session) {
     async function loadBaseData() {
         const kpiContainer = document.getElementById('kpi-container');
         if (!kpiContainer) return; // DOM desmontado
+
+        const yearRange = fetchYearRange();
+        if (!yearRange) return; // DOM desmontado
+        const { minAnio, maxAnio } = yearRange;
+
+        // Si ya tenemos los datos cargados en memoria y cubren el rango requerido,
+        // renderizamos inmediatamente sin hacer llamadas de red
+        if (cachedBaseData && cachedMinAnio <= minAnio && cachedMaxAnio >= maxAnio) {
+            renderAll(cachedBaseData, getFilter());
+            return;
+        }
+
+        const loadGen = ++currentLoadGen;
+
         try {
             kpiContainer.innerHTML = `
                 <div class="d-flex align-items-center justify-content-center py-5">
@@ -598,12 +615,18 @@ export function renderDashboard(container, session) {
                     <span class="text-muted">Cargando datos…</span>
                 </div>`;
 
-            const yearRange = fetchYearRange();
-            if (!yearRange) return; // DOM desmontado
-            const { minAnio, maxAnio } = yearRange;
-            cachedBaseData = await fetchAllBaseData(minAnio, maxAnio);
+            const baseData = await fetchAllBaseData(minAnio, maxAnio);
+            
+            // Si la generación cambió, esta respuesta es obsoleta (el usuario realizó otra acción posterior)
+            if (loadGen !== currentLoadGen) return;
+
+            cachedBaseData = baseData;
+            cachedMinAnio = minAnio;
+            cachedMaxAnio = maxAnio;
+
             renderAll(cachedBaseData, getFilter());
         } catch (error) {
+            if (loadGen !== currentLoadGen) return;
             console.error('Error al cargar datos', error);
             const kpi2 = document.getElementById('kpi-container');
             if (kpi2) kpi2.innerHTML = `<div class="alert alert-danger">Error al cargar datos: ${error.message}</div>`;
