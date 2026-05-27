@@ -1,4 +1,4 @@
-import { setFilter } from '../lib/state'
+import { toggleFilter } from '../lib/state'
 
 const activeCharts = {};
 
@@ -13,7 +13,7 @@ function destroyChartInstance(key) {
     }
 }
 
-export function renderPracticasChart(containerId, practicas, filter) {
+export function renderPracticasChart(containerId, practicas, filters) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -89,7 +89,7 @@ export function renderPracticasChart(containerId, practicas, filter) {
         };
     } else {
         // Normal mode: single series with click-to-filter
-        const activeCodigo = filter?.tipo === 'practica' ? filter.valor : null;
+        const activeCodigo = filters?.practica ? filters.practica.valor : null;
         const colors = practicas.codigos.map(c => c === activeCodigo ? '#004884' : '#2a8ed2');
 
         options = {
@@ -103,7 +103,7 @@ export function renderPracticasChart(containerId, practicas, filter) {
                     dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
                         const codigo = practicas.codigos[dataPointIndex];
                         const label = practicas.labels[dataPointIndex];
-                        if (codigo) setFilter('practica', codigo, label);
+                        if (codigo) toggleFilter('practica', codigo, label);
                     },
                 },
             },
@@ -173,7 +173,7 @@ export function renderPracticasChart(containerId, practicas, filter) {
     }
 }
 
-export function renderDerivantesChart(containerId, derivantes) {
+export function renderDerivantesChart(containerId, derivantes, filters) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -248,7 +248,10 @@ export function renderDerivantesChart(containerId, derivantes) {
             },
         };
     } else {
-        // Normal mode: single series distributed bars
+        // Normal mode: single series distributed bars with click-to-filter
+        const activeDerivante = filters?.derivante ? filters.derivante.valor : null;
+        const colors = derivantes.labels.map(label => label === activeDerivante ? '#004884' : '#2a8ed2');
+
         options = {
             series: [{ name: 'Derivaciones', data: derivantes.data }],
             chart: {
@@ -256,6 +259,12 @@ export function renderDerivantesChart(containerId, derivantes) {
                 height: Math.max(280, derivantes.labels.length * 30),
                 toolbar: { show: false },
                 animations: { enabled: true, speed: 500 },
+                events: {
+                    dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
+                        const label = derivantes.labels[dataPointIndex];
+                        if (label) toggleFilter('derivante', label, label);
+                    },
+                },
             },
             plotOptions: {
                 bar: {
@@ -266,8 +275,7 @@ export function renderDerivantesChart(containerId, derivantes) {
                     dataLabels: { position: 'top' },
                 },
             },
-            colors: ['#004884', '#0058a3', '#0072bc', '#1a84cc', '#2a8ed2',
-                     '#3a98db', '#4aa3e4', '#56abe8', '#70bef0', '#82c7ff'],
+            colors,
             dataLabels: {
                 enabled: true,
                 textAnchor: 'start',
@@ -315,3 +323,4 @@ export function renderDerivantesChart(containerId, derivantes) {
         activeCharts['derivantes'].render();
     }
 }
+

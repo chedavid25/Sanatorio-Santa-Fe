@@ -1,4 +1,4 @@
-import { setFilter } from '../lib/state'
+import { toggleFilter } from '../lib/state'
 
 const BLUES = ['#004884', '#0058a3', '#0072bc', '#2a8ed2', '#56abe8', '#82c7ff', '#ade4ff', '#d9f1ff', '#eef8ff', '#f0f8ff'];
 
@@ -43,14 +43,14 @@ function destroyChartInstance(key) {
     }
 }
 
-export function renderDistributionCharts(os, int, sede, area) {
-    renderOSChart(os);
-    renderIntChart(int);
-    renderSedeChart(sede);
-    renderAreaChart(area);
+export function renderDistributionCharts(os, int, sede, area, filters) {
+    renderOSChart(os, filters);
+    renderIntChart(int, filters);
+    renderSedeChart(sede, filters);
+    renderAreaChart(area, filters);
 }
 
-function renderOSChart(os) {
+function renderOSChart(os, filters) {
     const container = document.getElementById('os-distribution-chart');
     if (!container) return;
 
@@ -96,7 +96,10 @@ function renderOSChart(os) {
             ...COMP_STYLES,
         };
     } else {
-        // Normal mode: horizontal bar
+        // Normal mode: horizontal bar with click-to-filter
+        const activeOS = filters?.os ? filters.os.valor : null;
+        const colors = os.labels.map(label => label === activeOS ? '#004884' : '#2a8ed2');
+
         const maxVal = Math.max(...os.data);
         options = {
             series: [{ name: 'Estudios', data: os.data }],
@@ -105,6 +108,15 @@ function renderOSChart(os) {
                 height: Math.max(300, os.labels.length * 36),
                 toolbar: { show: false },
                 animations: { enabled: true, speed: 500 },
+                events: {
+                    dataPointSelection: (_event, _chartContext, config) => {
+                        const idx = config.dataPointIndex;
+                        if (idx !== undefined && idx !== -1) {
+                            const label = os.labels[idx];
+                            toggleFilter('os', label, label);
+                        }
+                    }
+                }
             },
             plotOptions: {
                 bar: {
@@ -115,7 +127,7 @@ function renderOSChart(os) {
                     dataLabels: { position: 'top' },
                 },
             },
-            colors: BLUES.slice(0, os.labels.length),
+            colors,
             dataLabels: {
                 enabled: true,
                 textAnchor: 'start',
@@ -162,7 +174,7 @@ function renderOSChart(os) {
     }
 }
 
-function renderIntChart(int) {
+function renderIntChart(int, filters) {
     const container = document.getElementById('int-distribution-chart');
     if (!container) return;
 
@@ -220,7 +232,7 @@ function renderIntChart(int) {
                         const idx = config.dataPointIndex;
                         if (idx !== undefined && idx !== -1) {
                             const label = int.labels[idx];
-                            setFilter('intermediaria', label, label);
+                            toggleFilter('intermediaria', label, label);
                         }
                     }
                 }
@@ -284,7 +296,7 @@ function renderIntChart(int) {
     }
 }
 
-function renderSedeChart(sede) {
+function renderSedeChart(sede, filters) {
     const container = document.getElementById('sede-distribution-chart');
     if (!container) return;
 
@@ -341,7 +353,7 @@ function renderSedeChart(sede) {
                     dataPointSelection: (_event, _chartContext, config) => {
                         const idx = config.dataPointIndex;
                         if (idx !== undefined && idx !== -1) {
-                            setFilter('sede', sede.labels[idx], sede.labels[idx]);
+                            toggleFilter('sede', sede.labels[idx], sede.labels[idx]);
                         }
                     }
                 }
@@ -405,7 +417,7 @@ function renderSedeChart(sede) {
     }
 }
 
-function renderAreaChart(area) {
+function renderAreaChart(area, filters) {
     const container = document.getElementById('area-distribution-chart');
     if (!container) return;
 
@@ -608,3 +620,4 @@ export function renderServicioDerivante(serv, onClickServicio) {
         activeCharts['serv'].render();
     }
 }
+

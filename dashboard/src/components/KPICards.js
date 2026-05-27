@@ -1,5 +1,5 @@
 import { MODULOS, MODULO_COLORS, MODULO_LABELS } from '../lib/data'
-import { setFilter, clearFilter, hasPermission } from '../lib/state'
+import { toggleFilter, clearFilters, hasPermission } from '../lib/state'
 
 let _renderGen = 0;
 // Registro de sparklines activos de ApexCharts para su destrucción
@@ -29,9 +29,9 @@ function variationBadge(current, previous) {
         </span>`;
 }
 
-export function renderKPICards(container, kpi, filter) {
-    const activeModulo   = filter?.tipo === 'modulo' ? filter.valor : null;
-    const activePractica = filter?.tipo === 'practica';
+export function renderKPICards(container, kpi, filters) {
+    const activeModulo   = filters?.modulo ? filters.modulo.valor : null;
+    const activePractica = filters?.practica;
     const comparing      = !!kpi.compararActivo;
 
     const modulosPermitidos = MODULOS.filter(mod => hasPermission(mod));
@@ -56,7 +56,7 @@ export function renderKPICards(container, kpi, filter) {
     container.innerHTML = `
     <div class="${gridClass}">
 
-        <!-- Total -->
+         <!-- Total -->
         <div class="col">
             <div class="card card-h-100 mb-0 ${!activeModulo && !activePractica ? 'border-primary border-2' : ''}"
                  style="cursor:pointer;" id="kpi-card-total">
@@ -101,10 +101,10 @@ export function renderKPICards(container, kpi, filter) {
     </div>`;
 
     // ── Click handlers ────────────────────────────────────────────
-    document.getElementById('kpi-card-total')?.addEventListener('click', () => clearFilter());
+    document.getElementById('kpi-card-total')?.addEventListener('click', () => clearFilters());
     modulosPermitidos.forEach(mod => {
         document.querySelector(`[data-modulo="${mod}"]`)?.addEventListener('click', () => {
-            setFilter('modulo', mod, mod);
+            toggleFilter('modulo', mod, mod);
         });
     });
 
@@ -146,3 +146,4 @@ function renderSparkline(id, data, color) {
         activeSparklines[id] = chart;
     }
 }
+

@@ -212,36 +212,127 @@ export async function fetchServicioDetail(servicioUnificado) {
     };
 }
 
-export function computeViewData(baseData, filter, dateFrom, dateTo, compararActivo = false, anioComparacion = null, permitidos = MODULOS) {
+export function computeViewData(baseData, filters, dateFrom, dateTo, compararActivo = false, anioComparacion = null, permitidos = MODULOS) {
     const [fromAnio, fromMes] = dateFrom.split('-').map(Number);
     const [toAnio, toMes] = dateTo.split('-').map(Number);
     const fromVal = fromAnio * 100 + fromMes;
     const toVal = toAnio * 100 + toMes;
 
-    const resumenFiltrado = (baseData.resumen || []).filter(r => {
-        const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo);
-    });
+    // Helper para verificar filtros comunes
+    const matchesCommonFilters = (row, excludeFilterKey = null) => {
+        // Rango de fechas
+        const v = row.anio * 100 + row.mes;
+        if (v < fromVal || v > toVal) return false;
 
-    const moduloFiltro = filter.tipo === 'modulo' ? filter.valor : null;
+        // Permisos de módulo
+        if (!permitidos.includes(row.modulo)) return false;
 
-    // Sorted list of months in the current range
-    const monthSet = new Set(resumenFiltrado.map(r => `${r.anio}-${String(r.mes).padStart(2, '0')}`));
-    const sortedMonths = Array.from(monthSet).sort();
+        // Filtro de Módulo
+        if (excludeFilterKey !== 'modulo' && filters.modulo) {
+            if (row.modulo !== filters.modulo.valor) return false;
+        }
 
-    // Comparison period boundaries
+        // Filtro de Sede
+        if (excludeFilterKey !== 'sede' && filters.sede) {
+            if (row.sede !== filters.sede.valor) return false;
+        }
+
+        // Filtro de Práctica
+        if (excludeFilterKey !== 'practica' && filters.practica) {
+            // Nota: En las tablas mensuales el código de práctica se llama codigo_practica
+            const cod = row.codigo_practica || row.codigo;
+            if (cod && String(cod) !== String(filters.practica.valor)) return false;
+        }
+
+        // Filtro de Obra Social
+        if (excludeFilterKey !== 'os' && filters.os) {
+            const osVal = row.os_nombre_limpio || row.nombre_os;
+            if (osVal && osVal !== filters.os.valor) return false;
+        }
+
+        // Filtro de Intermediaria
+        if (excludeFilterKey !== 'intermediaria' && filters.intermediaria) {
+            const intVal = row.intermediaria_limpia;
+            if (intVal && intVal !== filters.intermediaria.valor) return false;
+        }
+
+        // Filtro de Médico Derivante
+        if (excludeFilterKey !== 'derivante' && filters.derivante) {
+            const derVal = row.nombre_solicitante || row.derivante;
+            if (derVal && derVal !== filters.derivante.valor) return false;
+        }
+
+        return true;
+    };
+
+    // Helper para verificar filtros comunes en el período comparado
     const diffYears = compararActivo && anioComparacion ? (toAnio - Number(anioComparacion)) : 0;
     const compFromVal = (fromAnio - diffYears) * 100 + fromMes;
     const compToVal   = (toAnio   - diffYears) * 100 + toMes;
 
-    const resumenComparado = compararActivo
-        ? (baseData.resumen || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo);
-          })
-        : [];
+    const matchesCommonFiltersComp = (row, excludeFilterKey = null) => {
+        const v = row.anio * 100 + row.mes;
+        if (v < compFromVal || v > compToVal) return false;
 
-    // ── Trend labels ──────────────────────────────────────────────
+        if (!permitidos.includes(row.modulo)) return false;
+
+        if (excludeFilterKey !== 'modulo' && filters.modulo) {
+            if (row.modulo !== filters.modulo.valor) return false;
+        }
+        if (excludeFilterKey !== 'sede' && filters.sede) {
+            if (row.sede !== filters.sede.valor) return false;
+        }
+        if (excludeFilterKey !== 'practica' && filters.practica) {
+            const cod = row.codigo_practica || row.codigo;
+            if (cod && String(cod) !== String(filters.practica.valor)) return false;
+        }
+        if (excludeFilterKey !== 'os' && filters.os) {
+            const osVal = row.os_nombre_limpio || row.nombre_os;
+            if (osVal && osVal !== filters.os.valor) return false;
+        }
+        if (excludeFilterKey !== 'intermediaria' && filters.intermediaria) {
+            const intVal = row.intermediaria_limpia;
+            if (intVal && intVal !== filters.intermediaria.valor) return false;
+        }
+        if (excludeFilterKey !== 'derivante' && filters.derivante) {
+            const derVal = row.nombre_solicitante || row.derivante;
+            if (derVal && derVal !== filters.derivante.valor) return false;
+        }
+
+        return true;
+    };
+
+    // ── Resumen Filtrado (para KPIs y Gráfico de Tendencia) ────────────────
+    // Si estamos en un filtro de práctica, derivante, etc., debemos usar los datos de sus respectivas tablas de origen para el KPI
+    // ya que la tabla "resumen" no tiene columnas de OS, Práctica o Derivante.
+    let kpiDataRows = [];
+    let kpiDataRowsComp = [];
+
+    if (filters.practica) {
+        kpiDataRows = (baseData.practicas_por_mes || []).filter(r => matchesCommonFilters(r));
+        if (compararActivo) kpiDataRowsComp = (baseData.practicas_por_mes || []).filter(r => matchesCommonFiltersComp(r));
+    } else if (filters.derivante) {
+        kpiDataRows = (baseData.derivantes_por_mes || []).filter(r => matchesCommonFilters(r));
+        if (compararActivo) kpiDataRowsComp = (baseData.derivantes_por_mes || []).filter(r => matchesCommonFiltersComp(r));
+    } else if (filters.os) {
+        kpiDataRows = (baseData.os_por_mes || []).filter(r => matchesCommonFilters(r));
+        if (compararActivo) kpiDataRowsComp = (baseData.os_por_mes || []).filter(r => matchesCommonFiltersComp(r));
+    } else if (filters.intermediaria) {
+        kpiDataRows = (baseData.int_por_mes || []).filter(r => matchesCommonFilters(r));
+        if (compararActivo) kpiDataRowsComp = (baseData.int_por_mes || []).filter(r => matchesCommonFiltersComp(r));
+    } else if (filters.sede) {
+        kpiDataRows = (baseData.resumen_sede || []).filter(r => matchesCommonFilters(r));
+        if (compararActivo) kpiDataRowsComp = (baseData.resumen_sede || []).filter(r => matchesCommonFiltersComp(r));
+    } else {
+        kpiDataRows = (baseData.resumen || []).filter(r => matchesCommonFilters(r));
+        if (compararActivo) kpiDataRowsComp = (baseData.resumen || []).filter(r => matchesCommonFiltersComp(r));
+    }
+
+    // Sorted list of months in the current range
+    const monthSet = new Set(kpiDataRows.map(r => `${r.anio}-${String(r.mes).padStart(2, '0')}`));
+    const sortedMonths = Array.from(monthSet).sort();
+
+    // ── Trend labels & series ──────────────────────────────────────
     let trendLabels;
     if (compararActivo) {
         trendLabels = sortedMonths.map(k => {
@@ -255,18 +346,21 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
         });
     }
 
-    // ── Trend series ──────────────────────────────────────────────
-    const trendRows = moduloFiltro
-        ? resumenFiltrado.filter(r => r.modulo === moduloFiltro)
-        : resumenFiltrado;
-    const trendByMonth = aggregateByMonth(trendRows);
+    const trendByMonth = {};
+    kpiDataRows.forEach(r => {
+        const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
+        const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
+        trendByMonth[k] = (trendByMonth[k] || 0) + cant;
+    });
 
     let trendSeries = [];
     if (compararActivo) {
-        const trendRowsComp = moduloFiltro
-            ? resumenComparado.filter(r => r.modulo === moduloFiltro)
-            : resumenComparado;
-        const trendByMonthComp = aggregateByMonth(trendRowsComp);
+        const trendByMonthComp = {};
+        kpiDataRowsComp.forEach(r => {
+            const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
+            const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
+            trendByMonthComp[k] = (trendByMonthComp[k] || 0) + cant;
+        });
 
         const actualData = sortedMonths.map(k => trendByMonth[k] || 0);
         const compData = sortedMonths.map(k => {
@@ -280,15 +374,16 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
             { name: `Comparado (${anioComparacion})`, data: compData }
         ];
     } else {
-        trendSeries = [{ name: moduloFiltro || 'Total', data: sortedMonths.map(k => trendByMonth[k] || 0) }];
+        const trendName = filters.modulo ? filters.modulo.valor : 'Total';
+        trendSeries = [{ name: trendName, data: sortedMonths.map(k => trendByMonth[k] || 0) }];
     }
 
     // ── KPI totals (current + comparison) ─────────────────────────
     const kpiPorModulo = {};
     permitidos.forEach(m => {
-        kpiPorModulo[m] = resumenFiltrado
+        kpiPorModulo[m] = kpiDataRows
             .filter(r => r.modulo === m)
-            .reduce((s, r) => s + r.cantidad, 0);
+            .reduce((s, r) => s + (r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0)), 0);
     });
     const kpiTotal = Object.values(kpiPorModulo).reduce((a, b) => a + b, 0);
 
@@ -296,9 +391,9 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     let kpiTotalComp = 0;
     if (compararActivo) {
         permitidos.forEach(m => {
-            kpiPorModuloComp[m] = resumenComparado
+            kpiPorModuloComp[m] = kpiDataRowsComp
                 .filter(r => r.modulo === m)
-                .reduce((s, r) => s + r.cantidad, 0);
+                .reduce((s, r) => s + (r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0)), 0);
         });
         kpiTotalComp = Object.values(kpiPorModuloComp).reduce((a, b) => a + b, 0);
     }
@@ -306,7 +401,13 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     // ── Sparklines ────────────────────────────────────────────────
     const sparklines = { Total: sortedMonths.map(() => 0) };
     permitidos.forEach(mod => {
-        const byMonth = aggregateByMonth(resumenFiltrado.filter(r => r.modulo === mod));
+        const modRows = kpiDataRows.filter(r => r.modulo === mod);
+        const byMonth = {};
+        modRows.forEach(r => {
+            const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
+            const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
+            byMonth[k] = (byMonth[k] || 0) + cant;
+        });
         sparklines[mod] = sortedMonths.map(k => byMonth[k] || 0);
     });
     sortedMonths.forEach((_, i) => {
@@ -315,41 +416,21 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     // ── OS distribution ───────────────────────────────────────────
     let osEntries, osCompMap = {};
-    if (filter.tipo === 'intermediaria') {
-        // Cross-filter: OS que corresponden a la intermediaria seleccionada (all-time)
-        const filtered = (baseData.os_por_intermediaria || [])
-            .filter(r => r.intermediaria_limpia === filter.valor);
-        const combined = {};
-        filtered.forEach(r => {
-            if (r.nombre_os) combined[r.nombre_os] = (combined[r.nombre_os] || 0) + r.total_estudios;
-        });
-        osEntries = Object.entries(combined).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    } else {
-        const osFiltrado = (baseData.os_por_mes || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-        });
-        const osMap = {};
-        osFiltrado.forEach(r => {
-            if (r.os_nombre_limpio) osMap[r.os_nombre_limpio] = (osMap[r.os_nombre_limpio] || 0) + r.cantidad;
-        });
-        osEntries = Object.entries(osMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const osFiltrado = (baseData.os_por_mes || []).filter(r => matchesCommonFilters(r, 'os'));
+    const osMap = {};
+    osFiltrado.forEach(r => {
+        if (r.os_nombre_limpio) osMap[r.os_nombre_limpio] = (osMap[r.os_nombre_limpio] || 0) + r.cantidad;
+    });
+    osEntries = Object.entries(osMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
-        if (compararActivo) {
-            (baseData.os_por_mes || []).filter(r => {
-                const v = r.anio * 100 + r.mes;
-                return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-            }).forEach(r => {
-                if (r.os_nombre_limpio) osCompMap[r.os_nombre_limpio] = (osCompMap[r.os_nombre_limpio] || 0) + r.cantidad;
-            });
-        }
+    if (compararActivo) {
+        (baseData.os_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'os')).forEach(r => {
+            if (r.os_nombre_limpio) osCompMap[r.os_nombre_limpio] = (osCompMap[r.os_nombre_limpio] || 0) + r.cantidad;
+        });
     }
 
     // ── INT distribution ──────────────────────────────────────────
-    const intFiltrado = (baseData.int_por_mes || []).filter(r => {
-        const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-    });
+    const intFiltrado = (baseData.int_por_mes || []).filter(r => matchesCommonFilters(r, 'intermediaria'));
     const intMap = {};
     intFiltrado.forEach(r => {
         if (r.intermediaria_limpia) intMap[r.intermediaria_limpia] = (intMap[r.intermediaria_limpia] || 0) + r.cantidad;
@@ -358,19 +439,13 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     const intCompMap = {};
     if (compararActivo) {
-        (baseData.int_por_mes || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-        }).forEach(r => {
+        (baseData.int_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'intermediaria')).forEach(r => {
             if (r.intermediaria_limpia) intCompMap[r.intermediaria_limpia] = (intCompMap[r.intermediaria_limpia] || 0) + r.cantidad;
         });
     }
 
     // ── Sede distribution ──────────────────────────────────────────
-    const sedeFiltrado = (baseData.resumen_sede || []).filter(r => {
-        const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-    });
+    const sedeFiltrado = (baseData.resumen_sede || []).filter(r => matchesCommonFilters(r, 'sede'));
     const sedeMap = {};
     sedeFiltrado.forEach(r => {
         if (r.sede) sedeMap[r.sede] = (sedeMap[r.sede] || 0) + r.total_estudios;
@@ -379,19 +454,13 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     const sedeCompMap = {};
     if (compararActivo) {
-        (baseData.resumen_sede || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-        }).forEach(r => {
+        (baseData.resumen_sede || []).filter(r => matchesCommonFiltersComp(r, 'sede')).forEach(r => {
             if (r.sede) sedeCompMap[r.sede] = (sedeCompMap[r.sede] || 0) + r.total_estudios;
         });
     }
 
     // ── Top Prácticas ─────────────────────────────────────────────
-    const practicasFiltradas = (baseData.practicas_por_mes || []).filter(r => {
-        const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-    });
+    const practicasFiltradas = (baseData.practicas_por_mes || []).filter(r => matchesCommonFilters(r, 'practica'));
     const practicasMap = {};
     practicasFiltradas.forEach(r => {
         if (!r.codigo_practica) return;
@@ -407,19 +476,13 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     const practicasCompMap = {};
     if (compararActivo) {
-        (baseData.practicas_por_mes || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-        }).forEach(r => {
+        (baseData.practicas_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'practica')).forEach(r => {
             if (r.codigo_practica) practicasCompMap[r.codigo_practica] = (practicasCompMap[r.codigo_practica] || 0) + r.total_estudios;
         });
     }
 
     // ── Top Derivantes ────────────────────────────────────────────
-    const derivantesFiltrados = (baseData.derivantes_por_mes || []).filter(r => {
-        const v = r.anio * 100 + r.mes;
-        return v >= fromVal && v <= toVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-    });
+    const derivantesFiltrados = (baseData.derivantes_por_mes || []).filter(r => matchesCommonFilters(r, 'derivante'));
     const derivantesMap = {};
     derivantesFiltrados.forEach(r => {
         if (!r.nombre_solicitante) return;
@@ -432,17 +495,14 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     const derivantesCompMap = {};
     if (compararActivo) {
-        (baseData.derivantes_por_mes || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            return v >= compFromVal && v <= compToVal && permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-        }).forEach(r => {
+        (baseData.derivantes_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'derivante')).forEach(r => {
             if (r.nombre_solicitante) derivantesCompMap[r.nombre_solicitante] = (derivantesCompMap[r.nombre_solicitante] || 0) + r.cantidad;
         });
     }
 
     // ── Derivantes por servicio unificado ─────────────────────────
     const servFiltrado = (baseData.derivantes_por_servicio || []).filter(r => {
-        return permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
+        return permitidos.includes(r.modulo) && (!filters.modulo || r.modulo === filters.modulo.valor);
     });
     const servMap = {};
     servFiltrado.forEach(r => {
@@ -451,14 +511,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
     const servEntries = Object.entries(servMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     // ── Área distribution (Ambulatorio vs Internado) ──────────────────────
-    const areaFiltrado = (baseData.area_por_mes || []).filter(r => {
-        const v = r.anio * 100 + r.mes;
-        const matchFecha = v >= fromVal && v <= toVal;
-        const matchModulo = permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-        const matchSede = filter.tipo === 'sede' ? r.sede === filter.valor : true;
-        return matchFecha && matchModulo && matchSede;
-    });
-
+    const areaFiltrado = (baseData.area_por_mes || []).filter(r => matchesCommonFilters(r));
     const areaMap = { Ambulatorio: 0, Internado: 0 };
     areaFiltrado.forEach(r => {
         if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
@@ -471,13 +524,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
 
     let areaDataComp = null;
     if (compararActivo) {
-        const areaCompFiltrado = (baseData.area_por_mes || []).filter(r => {
-            const v = r.anio * 100 + r.mes;
-            const matchFecha = v >= compFromVal && v <= compToVal;
-            const matchModulo = permitidos.includes(r.modulo) && (!moduloFiltro || r.modulo === moduloFiltro);
-            const matchSede = filter.tipo === 'sede' ? r.sede === filter.valor : true;
-            return matchFecha && matchModulo && matchSede;
-        });
+        const areaCompFiltrado = (baseData.area_por_mes || []).filter(r => matchesCommonFiltersComp(r));
         const areaMapComp = { Ambulatorio: 0, Internado: 0 };
         areaCompFiltrado.forEach(r => {
             if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
@@ -501,9 +548,7 @@ export function computeViewData(baseData, filter, dateFrom, dateTo, compararActi
         os: {
             labels: osEntries.map(e => e[0]),
             data: osEntries.map(e => e[1]),
-            dataComp: compararActivo && filter.tipo !== 'intermediaria'
-                ? osEntries.map(e => osCompMap[e[0]] || 0)
-                : null,
+            dataComp: compararActivo ? osEntries.map(e => osCompMap[e[0]] || 0) : null,
         },
         int: {
             labels: intEntries.map(e => e[0]),
@@ -542,7 +587,8 @@ function aggregateByMonth(rows) {
     const map = {};
     rows.forEach(r => {
         const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
-        map[k] = (map[k] || 0) + r.cantidad;
+        const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
+        map[k] = (map[k] || 0) + cant;
     });
     return map;
 }

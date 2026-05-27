@@ -1,11 +1,12 @@
 import { supabase } from './lib/supabase'
 import { DEPARTAMENTOS } from './config'
 import { fetchAllBaseData, fetchPracticaDetail, fetchSedeDetail, fetchServicioDetail, computeViewData, MODULO_LABELS, MODULOS } from './lib/data'
-import { getFilter, setFilter, clearFilter, onFilterChange, getUser, hasPermission } from './lib/state'
+import { getFilters, toggleFilter, removeFilter, clearFilters, onFilterChange, getUser, hasPermission } from './lib/state'
 import { renderKPICards } from './components/KPICards'
 import { renderMainChart } from './components/MainChart'
 import { renderPracticasChart, renderDerivantesChart } from './components/DetalleCharts'
 import { renderDistributionCharts, renderServicioDerivante } from './components/DistributionCharts'
+
 
 export function renderDashboard(container, session) {
     const activeDept = DEPARTAMENTOS.find(d => d.activo) || DEPARTAMENTOS[0];
@@ -56,16 +57,8 @@ export function renderDashboard(container, session) {
                 </div>
 
                 <div class="d-flex align-items-center gap-2">
-                    <!-- Filter badge -->
-                    <div id="filter-badge-wrap" class="d-none">
-                        <span class="badge bg-primary d-flex align-items-center gap-1 px-3 py-2 font-size-12"
-                              style="border-radius:20px; cursor:default;">
-                            <i class="bx bx-filter-alt"></i>
-                            <span id="filter-badge-text">Filtrando</span>
-                            <button id="clear-filter-btn" class="btn-close btn-close-white ms-1"
-                                    style="font-size:0.55rem;" aria-label="Limpiar filtro"></button>
-                        </span>
-                    </div>
+                    <!-- Filter badges container -->
+                    <div id="filter-badges-container" class="d-flex align-items-center gap-1 flex-wrap"></div>
 
                     <!-- Comparación Switch -->
                     <div class="form-check form-switch d-flex align-items-center mb-0" style="padding-left: 2.3em;">
@@ -179,7 +172,7 @@ export function renderDashboard(container, session) {
                             <div class="card">
                                 <div class="card-header align-items-center d-flex">
                                     <h4 class="card-title mb-0 flex-grow-1">Tendencia Mensual de Estudios</h4>
-                                    <small class="text-muted" id="trend-chart-hint">Usá las tarjetas de arriba para filtrar por módulo</small>
+                                    <small class="text-muted" id="trend-chart-hint">Usá los gráficos o las tarjetas de arriba para filtrar</small>
                                 </div>
                                 <div class="card-body">
                                     <div id="main-trend-chart" class="apex-charts" dir="ltr"></div>
@@ -194,7 +187,7 @@ export function renderDashboard(container, session) {
                             <div class="card">
                                 <div class="card-header d-flex align-items-center">
                                     <h4 class="card-title mb-0 flex-grow-1">Top Prácticas</h4>
-                                    <small class="text-muted">Hacé clic para filtrar todos los gráficos</small>
+                                    <small class="text-muted">Hacé clic para alternar filtro de práctica</small>
                                 </div>
                                 <div class="card-body">
                                     <div id="practicas-chart" class="apex-charts"></div>
@@ -203,8 +196,9 @@ export function renderDashboard(container, session) {
                         </div>
                         <div class="col-xl-4">
                             <div class="card">
-                                <div class="card-header">
-                                    <h4 class="card-title mb-0">Top Médicos Derivantes</h4>
+                                <div class="card-header d-flex align-items-center">
+                                    <h4 class="card-title mb-0 flex-grow-1">Top Médicos Derivantes</h4>
+                                    <small class="text-muted">Hacé clic para alternar filtro de médico</small>
                                 </div>
                                 <div class="card-body">
                                     <div id="derivantes-chart" class="apex-charts"></div>
@@ -328,126 +322,74 @@ export function renderDashboard(container, session) {
         };
     }
 
-    function updateFilterBadge(filter) {
-        const wrap = document.getElementById('filter-badge-wrap');
-        const text = document.getElementById('filter-badge-text');
-        const hint = document.getElementById('trend-chart-hint');
-        if (!wrap || !text) return;
-        if (filter.tipo) {
-            const displayLabel = filter.tipo === 'modulo'
-                ? (MODULO_LABELS[filter.valor] || filter.valor)
-                : (filter.label || filter.valor);
-            const tipoLabel = filter.tipo === 'modulo' 
-                ? 'Módulo' 
-                : (filter.tipo === 'intermediaria' 
-                    ? 'Intermediaria' 
-                    : (filter.tipo === 'sede' ? 'Sede' : 'Práctica'));
-            text.textContent = `${tipoLabel}: ${displayLabel}`;
-            wrap.classList.remove('d-none');
-            if (hint) hint.textContent = 'Hacé clic en × para limpiar el filtro';
-        } else {
-            wrap.classList.add('d-none');
-            if (hint) hint.textContent = 'Usá las tarjetas de arriba para filtrar por módulo';
+    // Traductor de nombres internos de filtros a etiquetas visuales
+    const TIPO_LABELS = {
+        modulo: 'Módulo',
+        practica: 'Práctica',
+        os: 'Obra Social',
+        intermediaria: 'Intermediaria',
+        sede: 'Sede',
+        derivante: 'Médico',
+    };
+
+    function updateFilterBadges(filters) {
+        const container = document.getElementById('filter-badges-container');
+        if (!container) return;
+
+        const activeKeys = Object.keys(filters).filter(k => filters[k] !== null);
+
+        if (activeKeys.length === 0) {
+            container.innerHTML = '';
+            return;
         }
+
+        container.innerHTML = activeKeys.map(key => {
+            const f = filters[key];
+            const displayLabel = key === 'modulo' ? (MODULO_LABELS[f.valor] || f.valor) : (f.label || f.valor);
+            const tipoLabel = TIPO_LABELS[key] || key;
+            return `
+                <span class="badge bg-primary d-flex align-items-center gap-1 px-3 py-2 font-size-12"
+                      style="border-radius:20px; cursor:default;">
+                    <i class="bx bx-filter-alt"></i>
+                    <span>${tipoLabel}: ${displayLabel}</span>
+                    <button class="btn-close btn-close-white ms-1 remove-filter-btn"
+                            style="font-size:0.55rem;" data-filter-type="${key}" aria-label="Limpiar filtro"></button>
+                </span>`;
+        }).join('');
+
+        // Vincular eventos de eliminación en los botones close
+        container.querySelectorAll('.remove-filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tipo = e.currentTarget.getAttribute('data-filter-type');
+                removeFilter(tipo);
+            });
+        });
     }
 
-    function renderAll(baseData, filter) {
+    function renderAll(baseData, filters) {
         const range = getDateRange();
         if (!range) return; // DOM desmontado, ignorar
         const { dateFrom, dateTo } = range;
         const permitidos = MODULOS.filter(mod => hasPermission(mod));
-        const viewData = computeViewData(baseData, filter, dateFrom, dateTo, compararActivo, anioComparacion, permitidos);
+        const viewData = computeViewData(baseData, filters, dateFrom, dateTo, compararActivo, anioComparacion, permitidos);
 
-        updateFilterBadge(filter);
-        renderKPICards(document.getElementById('kpi-container'), viewData.kpi, filter);
-        renderMainChart('main-trend-chart', viewData.trend, filter);
-        renderPracticasChart('practicas-chart', viewData.practicas, filter);
-        renderDerivantesChart('derivantes-chart', viewData.derivantes);
-        renderDistributionCharts(viewData.os, viewData.int, viewData.sede, viewData.area);
+        updateFilterBadges(filters);
+        renderKPICards(document.getElementById('kpi-container'), viewData.kpi, filters);
+        renderMainChart('main-trend-chart', viewData.trend, filters);
+        renderPracticasChart('practicas-chart', viewData.practicas, filters);
+        renderDerivantesChart('derivantes-chart', viewData.derivantes, filters);
+        renderDistributionCharts(viewData.os, viewData.int, viewData.sede, viewData.area, filters);
         renderServicioDerivante(viewData.servicioDerivante, (servicio) => handleServicioFilter(servicio));
-    }
-
-    async function handlePracticaFilter(filter) {
-        if (!filter.tipo || !filter.valor) return;
-        try {
-            const { dateFrom, dateTo } = getDateRange();
-            const [fromAnio, fromMes] = dateFrom.split('-').map(Number);
-            const [toAnio, toMes] = dateTo.split('-').map(Number);
-            const detail = await fetchPracticaDetail(filter.valor, fromAnio, toAnio);
-            const fromVal = fromAnio * 100 + fromMes;
-            const toVal = toAnio * 100 + toMes;
-
-            const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-            const mesFiltrado = detail.mes.filter(r => {
-                const v = r.anio * 100 + r.mes;
-                return v >= fromVal && v <= toVal;
-            });
-            const sortedMes = [...mesFiltrado].sort((a, b) => (a.anio * 100 + a.mes) - (b.anio * 100 + b.mes));
-            const trendLabels = sortedMes.map(r => `${MESES[r.mes - 1]} ${String(r.anio).slice(2)}`);
-            const trendSeries = [{ name: filter.label || filter.valor, data: sortedMes.map(r => r.total_estudios) }];
-
-            renderMainChart('main-trend-chart', { labels: trendLabels, series: trendSeries }, filter);
-            // Calcular distribución de área para la práctica
-            const moduloFiltroAct = getFilter().tipo === 'modulo' ? getFilter().valor : null;
-            const permitidosAct = MODULOS.filter(mod => hasPermission(mod));
-            const areaPracFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
-                const v = r.anio * 100 + r.mes;
-                const matchFecha = v >= fromVal && v <= toVal;
-                const matchModulo = permitidosAct.includes(r.modulo) && (!moduloFiltroAct || r.modulo === moduloFiltroAct);
-                return matchFecha && matchModulo;
-            });
-            const areaPracMap = { Ambulatorio: 0, Internado: 0 };
-            areaPracFiltrado.forEach(r => {
-                if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
-                    areaPracMap[r.area_tipo] += r.cantidad;
-                }
-            });
-            let areaPracDataComp = null;
-            if (compararActivo) {
-                const diffYears = toAnio - Number(anioComparacion);
-                const compFromVal = (fromAnio - diffYears) * 100 + fromMes;
-                const compToVal   = (toAnio   - diffYears) * 100 + toMes;
-                const areaPracCompFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
-                    const v = r.anio * 100 + r.mes;
-                    const matchFecha = v >= compFromVal && v <= compToVal;
-                    const matchModulo = permitidosAct.includes(r.modulo) && (!moduloFiltroAct || r.modulo === moduloFiltroAct);
-                    return matchFecha && matchModulo;
-                });
-                const areaPracMapComp = { Ambulatorio: 0, Internado: 0 };
-                areaPracCompFiltrado.forEach(r => {
-                    if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
-                        areaPracMapComp[r.area_tipo] += r.cantidad;
-                    }
-                });
-                areaPracDataComp = [areaPracMapComp.Ambulatorio, areaPracMapComp.Internado];
-            }
-
-            renderDistributionCharts(
-                { labels: detail.os.map(r => r.nombre_os), data: detail.os.map(r => r.total_estudios) },
-                { labels: detail.int.map(r => r.intermediaria_limpia), data: detail.int.map(r => r.total_estudios) },
-                null, // En filtro de práctica, el de sedes no se redefine o se limpia
-                { labels: ['Ambulatorio', 'Internado'], data: [areaPracMap.Ambulatorio, areaPracMap.Internado], dataComp: areaPracDataComp }
-            );
-        } catch (err) {
-            console.error('Error al cargar detalle de práctica', err);
-        }
     }
 
     async function handleServicioFilter(servicio) {
         if (!servicio) return;
         try {
-            // Actualizar badge de filtro visualmente (informativo)
-            const wrap = document.getElementById('filter-badge-wrap');
-            const text = document.getElementById('filter-badge-text');
-            if (wrap && text) {
-                text.textContent = `Servicio: ${servicio}`;
-                wrap.classList.remove('d-none');
-            }
             const detail = await fetchServicioDetail(servicio);
             renderDerivantesChart('derivantes-chart', {
                 labels: detail.derivantes.map(r => r.nombre_solicitante),
                 data: detail.derivantes.map(r => r.total_derivaciones),
-            });
+            }, getFilters());
             // Actualizar encabezado del card de derivantes
             const cardTitle = document.querySelector('#derivantes-chart')?.closest('.card')?.querySelector('.card-title');
             if (cardTitle) cardTitle.textContent = `Médicos Derivantes — ${servicio}`;
@@ -456,137 +398,19 @@ export function renderDashboard(container, session) {
         }
     }
 
-    async function handleSedeFilter(filter) {
-        if (!filter.tipo || !filter.valor) return;
-        try {
-            const { dateFrom, dateTo } = getDateRange();
-            const [fromAnio, fromMes] = dateFrom.split('-').map(Number);
-            const [toAnio, toMes] = dateTo.split('-').map(Number);
-            const detail = await fetchSedeDetail(filter.valor, fromAnio, toAnio);
-            const fromVal = fromAnio * 100 + fromMes;
-            const toVal = toAnio * 100 + toMes;
-
-            const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-            const mesFiltrado = detail.mes.filter(r => {
-                const v = r.anio * 100 + r.mes;
-                return v >= fromVal && v <= toVal;
-            });
-            const sortedMes = [...mesFiltrado].sort((a, b) => (a.anio * 100 + a.mes) - (b.anio * 100 + b.mes));
-            const trendLabels = sortedMes.map(r => `${MESES[r.mes - 1]} ${String(r.anio).slice(2)}`);
-            const trendSeries = [{ name: filter.label || filter.valor, data: sortedMes.map(r => r.total_estudios) }];
-
-            // Recalcular KPIs
-            const modulosPermitidos = ['Video', 'Tomo', 'Resonancia', 'Eco'].filter(m => hasPermission(m));
-            const kpiPorModulo = {};
-            modulosPermitidos.forEach(m => {
-                kpiPorModulo[m] = detail.mes
-                    .filter(r => r.modulo === m)
-                    .reduce((s, r) => s + r.total_estudios, 0);
-            });
-            const kpiTotal = Object.values(kpiPorModulo).reduce((a, b) => a + b, 0);
-
-            // Sparklines
-            const sparklines = { Total: sortedMes.map(() => 0) };
-            modulosPermitidos.forEach(mod => {
-                const byMonth = {};
-                detail.mes.filter(r => r.modulo === mod).forEach(r => {
-                    byMonth[`${r.anio}-${String(r.mes).padStart(2, '0')}`] = r.total_estudios;
-                });
-                const sortedKeys = sortedMes.map(r => `${r.anio}-${String(r.mes).padStart(2, '0')}`);
-                sparklines[mod] = sortedKeys.map(k => byMonth[k] || 0);
-            });
-            sortedMes.forEach((_, i) => {
-                sparklines.Total[i] = modulosPermitidos.reduce((s, m) => s + (sparklines[m][i] || 0), 0);
-            });
-
-            renderKPICards(document.getElementById('kpi-container'), { total: kpiTotal, porModulo: kpiPorModulo, sparklines }, filter);
-            renderMainChart('main-trend-chart', { labels: trendLabels, series: trendSeries }, filter);
-
-            // Calcular distribución de área filtrada por Sede
-            const moduloFiltroSede = getFilter().tipo === 'modulo' ? getFilter().valor : null;
-            const permitidosSede = MODULOS.filter(mod => hasPermission(mod));
-            const areaSedeFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
-                const v = r.anio * 100 + r.mes;
-                const matchFecha = v >= fromVal && v <= toVal;
-                const matchModulo = permitidosSede.includes(r.modulo) && (!moduloFiltroSede || r.modulo === moduloFiltroSede);
-                const matchSede = r.sede === filter.valor;
-                return matchFecha && matchModulo && matchSede;
-            });
-            const areaSedeMap = { Ambulatorio: 0, Internado: 0 };
-            areaSedeFiltrado.forEach(r => {
-                if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
-                    areaSedeMap[r.area_tipo] += r.cantidad;
-                }
-            });
-            let areaSedeDataComp = null;
-            if (compararActivo) {
-                const diffYears = toAnio - Number(anioComparacion);
-                const compFromVal = (fromAnio - diffYears) * 100 + fromMes;
-                const compToVal   = (toAnio   - diffYears) * 100 + toMes;
-                const areaSedeCompFiltrado = (cachedBaseData?.area_por_mes || []).filter(r => {
-                    const v = r.anio * 100 + r.mes;
-                    const matchFecha = v >= compFromVal && v <= compToVal;
-                    const matchModulo = permitidosSede.includes(r.modulo) && (!moduloFiltroSede || r.modulo === moduloFiltroSede);
-                    const matchSede = r.sede === filter.valor;
-                    return matchFecha && matchModulo && matchSede;
-                });
-                const areaSedeMapComp = { Ambulatorio: 0, Internado: 0 };
-                areaSedeCompFiltrado.forEach(r => {
-                    if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
-                        areaSedeMapComp[r.area_tipo] += r.cantidad;
-                    }
-                });
-                areaSedeDataComp = [areaSedeMapComp.Ambulatorio, areaSedeMapComp.Internado];
-            }
-
-            renderDistributionCharts(
-                { labels: detail.os.map(r => r.nombre_os), data: detail.os.map(r => r.total_estudios) },
-                { labels: detail.int.map(r => r.intermediaria_limpia), data: detail.int.map(r => r.total_estudios) },
-                { labels: [filter.valor], data: [kpiTotal] },
-                { labels: ['Ambulatorio', 'Internado'], data: [areaSedeMap.Ambulatorio, areaSedeMap.Internado], dataComp: areaSedeDataComp }
-            );
-
-            renderPracticasChart('practicas-chart', {
-                labels: detail.practicas.map(r => r.nombre_practica),
-                data: detail.practicas.map(r => r.total_estudios),
-                codigos: detail.practicas.map(r => r.codigo_practica),
-            }, filter);
-
-            renderDerivantesChart('derivantes-chart', {
-                labels: detail.derivantes.map(r => r.nombre_solicitante),
-                data: detail.derivantes.map(r => r.total_derivaciones),
-            });
-        } catch (err) {
-            console.error('Error al cargar detalle de sede', err);
-        }
-    }
-
     // ── Filter change listener ─────────────────────────────────
-    const unsubscribe = onFilterChange(filter => {
+    const unsubscribe = onFilterChange(filters => {
         if (!cachedBaseData) return;
-        renderAll(cachedBaseData, filter);
-        if (filter.tipo === 'practica') handlePracticaFilter(filter);
-        if (filter.tipo === 'sede') handleSedeFilter(filter);
-    });
-
-    // ── Filter badge clear button ──────────────────────────────
-    document.getElementById('clear-filter-btn')?.addEventListener('click', () => {
-        clearFilter();
-        // Restaurar título del card de derivantes
-        const cardTitle = document.querySelector('#derivantes-chart')?.closest('.card')?.querySelector('.card-title');
-        if (cardTitle) cardTitle.textContent = 'Top Médicos Derivantes';
+        renderAll(cachedBaseData, filters);
     });
 
     // ── Load base data ─────────────────────────────────────────
-    // fetchYearRange: computes [minAnio, maxAnio] to pass to fetchAllBaseData.
-    // When comparison is active we extend the range down to cover the comparison year too.
     function fetchYearRange() {
         const range = getDateRange();
         if (!range) return null;
         const { dateFrom, dateTo } = range;
         const fromAnio = Number(dateFrom.split('-')[0]);
         const toAnio   = Number(dateTo.split('-')[0]);
-        // If comparison is active, also cover the comparison year
         const compAnio = compararActivo && anioComparacion ? Number(anioComparacion) : fromAnio;
         return { minAnio: Math.min(fromAnio, compAnio), maxAnio: toAnio };
     }
@@ -599,10 +423,8 @@ export function renderDashboard(container, session) {
         if (!yearRange) return; // DOM desmontado
         const { minAnio, maxAnio } = yearRange;
 
-        // Si ya tenemos los datos cargados en memoria y cubren el rango requerido,
-        // renderizamos inmediatamente sin hacer llamadas de red
         if (cachedBaseData && cachedMinAnio <= minAnio && cachedMaxAnio >= maxAnio) {
-            renderAll(cachedBaseData, getFilter());
+            renderAll(cachedBaseData, getFilters());
             return;
         }
 
@@ -617,14 +439,13 @@ export function renderDashboard(container, session) {
 
             const baseData = await fetchAllBaseData(minAnio, maxAnio);
             
-            // Si la generación cambió, esta respuesta es obsoleta (el usuario realizó otra acción posterior)
             if (loadGen !== currentLoadGen) return;
 
             cachedBaseData = baseData;
             cachedMinAnio = minAnio;
             cachedMaxAnio = maxAnio;
 
-            renderAll(cachedBaseData, getFilter());
+            renderAll(cachedBaseData, getFilters());
         } catch (error) {
             if (loadGen !== currentLoadGen) return;
             console.error('Error al cargar datos', error);
@@ -636,8 +457,6 @@ export function renderDashboard(container, session) {
     // Date range changes → re-fetch from server with the new year range
     async function onDateChange() {
         await loadBaseData();
-        const filter = getFilter();
-        if (filter.tipo === 'practica') handlePracticaFilter(filter);
     }
     document.getElementById('date-from')?.addEventListener('change', onDateChange);
     document.getElementById('date-to')?.addEventListener('change', onDateChange);
@@ -649,13 +468,12 @@ export function renderDashboard(container, session) {
             wrap.classList.toggle('d-none', !compararActivo);
             wrap.classList.toggle('d-flex', compararActivo);
         }
-        // Re-fetch: activating comparison may extend the year range needed
         await loadBaseData();
     });
 
     document.getElementById('compare-year-select')?.addEventListener('change', async e => {
         anioComparacion = e.target.value;
-        if (compararActivo) await loadBaseData();  // new year = different server filter
+        if (compararActivo) await loadBaseData();
     });
 
     loadBaseData();
@@ -681,3 +499,4 @@ async function loadLastSync() {
         console.error('Error al cargar sync', e);
     }
 }
+
