@@ -59,95 +59,10 @@ async function withRetry(queryFn, retries = 3, delayMs = 600) {
 }
 
 export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Date().toISOString().slice(0, 4), 10)) {
-    // Definimos las consultas como funciones diferidas
-    const queries = {
-        resumen:                 gMes('gold_vw_di_resumen_por_mes',         'modulo,anio,mes,cantidad',                                      fromAnio, toAnio),
-        os_por_mes:              gMes('gold_vw_di_os_por_mes',               'modulo,os_nombre_limpio,anio,mes,cantidad',                    fromAnio, toAnio),
-        int_por_mes:             gMes('gold_vw_di_intermediaria_por_mes',    'modulo,intermediaria_limpia,anio,mes,cantidad',                fromAnio, toAnio),
-        practicas_por_mes:       gMes('gold_vw_di_practicas_por_mes',        'modulo,codigo_practica,nombre_practica,anio,mes,total_estudios', fromAnio, toAnio),
-        derivantes_por_mes:      gMes('gold_vw_di_derivantes_por_mes',       'modulo,nombre_solicitante,anio,mes,cantidad',                  fromAnio, toAnio),
-        os_por_intermediaria:    g('gold_vw_di_os_por_intermediaria',        'modulo,intermediaria_limpia,nombre_os,total_estudios'),
-        resumen_sede:            gMes('gold_vw_di_resumen_por_sede_mes',     'modulo,sede,anio,mes,total_estudios',                          fromAnio, toAnio),
-        area_por_mes:            gMes('gold_vw_di_area_por_mes',             'modulo,sede,anio,mes,area_tipo,cantidad',                      fromAnio, toAnio),
-        derivantes_por_servicio: g('gold_vw_di_derivantes_por_servicio',     'modulo,servicio_unificado,total_estudios'),
-        // Cross-filter: derivante × dimensiones (para filtrar OS/Int/Sede/Área al seleccionar un médico)
-        os_por_derivante:        gMes('gold_vw_di_os_por_derivante',         'modulo,nombre_solicitante,nombre_os,anio,mes,cantidad',        fromAnio, toAnio),
-        int_por_derivante:       gMes('gold_vw_di_int_por_derivante',        'modulo,nombre_solicitante,intermediaria_limpia,anio,mes,cantidad', fromAnio, toAnio),
-        sede_por_derivante_mes:  gMes('gold_vw_di_sede_por_derivante_mes',   'modulo,nombre_solicitante,sede,anio,mes,total_estudios',       fromAnio, toAnio),
-        area_por_derivante:      gMes('gold_vw_di_area_por_derivante',       'modulo,nombre_solicitante,area_tipo,anio,mes,cantidad',        fromAnio, toAnio),
-    };
-
-    // Estructuramos la carga en lotes paralelos (máximo 3 consultas concurrentes)
-    // para no saturar las conexiones de Supabase/PostgREST.
-    const runBatch = async (batchQueries) => {
-        const batchKeys = Object.keys(batchQueries);
-        const batchPromises = batchKeys.map(key => 
-            withRetry(batchQueries[key])
-                .then(data => ({ key, status: 'fulfilled', value: data }))
-                .catch(err => {
-                    console.error(`Error crítico cargando vista '${key}':`, err);
-                    return { key, status: 'rejected', reason: err, value: [] };
-                })
-        );
-        return Promise.all(batchPromises);
-    };
-
-    // Lote 1: Datos críticos mensuales
-    const batch1Results = await runBatch({
-        resumen: queries.resumen,
-        os_por_mes: queries.os_por_mes,
-        int_por_mes: queries.int_por_mes,
-    });
-
-    // Lote 2: Detalles de prácticas, derivantes y sedes
-    const batch2Results = await runBatch({
-        practicas_por_mes: queries.practicas_por_mes,
-        derivantes_por_mes: queries.derivantes_por_mes,
-        resumen_sede: queries.resumen_sede,
-    });
-
-    // Lote 3: Vistas estáticas y auxiliares
-    const batch3Results = await runBatch({
-        os_por_intermediaria: queries.os_por_intermediaria,
-        area_por_mes: queries.area_por_mes,
-        derivantes_por_servicio: queries.derivantes_por_servicio,
-    });
-
-    // Lote 4: Vistas de cross-filtering por derivante
-    const batch4Results = await runBatch({
-        os_por_derivante:       queries.os_por_derivante,
-        int_por_derivante:      queries.int_por_derivante,
-        sede_por_derivante_mes: queries.sede_por_derivante_mes,
-        area_por_derivante:     queries.area_por_derivante,
-    });
-
-    // Combinar todos los resultados en un único mapa
-    const resultsMap = {};
-    [...batch1Results, ...batch2Results, ...batch3Results, ...batch4Results].forEach(res => {
-        resultsMap[res.key] = res.value;
-    });
-
-    // Si la vista crítica resumen falló tras los reintentos, lanzamos error general
-    const resumenRes = batch1Results.find(r => r.key === 'resumen');
-    if (resumenRes && resumenRes.status === 'rejected') {
-        throw resumenRes.reason;
-    }
-
+    const query = gMes('gold_vw_di_multidimensional_saneado', '*', fromAnio, toAnio);
+    const data = await withRetry(query);
     return {
-        resumen:                 resultsMap.resumen,
-        os_por_mes:              resultsMap.os_por_mes,
-        int_por_mes:             resultsMap.int_por_mes,
-        practicas_por_mes:       resultsMap.practicas_por_mes,
-        derivantes_por_mes:      resultsMap.derivantes_por_mes,
-        os_por_intermediaria:    resultsMap.os_por_intermediaria,
-        resumen_sede:            resultsMap.resumen_sede,
-        area_por_mes:            resultsMap.area_por_mes,
-        derivantes_por_servicio: resultsMap.derivantes_por_servicio,
-        // Cross-filtering por derivante
-        os_por_derivante:        resultsMap.os_por_derivante,
-        int_por_derivante:       resultsMap.int_por_derivante,
-        sede_por_derivante_mes:  resultsMap.sede_por_derivante_mes,
-        area_por_derivante:      resultsMap.area_por_derivante,
+        multidimensional: data
     };
 }
 
@@ -257,27 +172,22 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
         // Filtro de Práctica
         if (excludeFilterKey !== 'practica' && filters.practica) {
-            // Nota: En las tablas mensuales el código de práctica se llama codigo_practica
-            const cod = row.codigo_practica || row.codigo;
-            if (cod && String(cod) !== String(filters.practica.valor)) return false;
+            if (String(row.codigo_practica) !== String(filters.practica.valor)) return false;
         }
 
         // Filtro de Obra Social
         if (excludeFilterKey !== 'os' && filters.os) {
-            const osVal = row.os_nombre_limpio || row.nombre_os;
-            if (osVal && osVal !== filters.os.valor) return false;
+            if (row.nombre_os !== filters.os.valor) return false;
         }
 
         // Filtro de Intermediaria
         if (excludeFilterKey !== 'intermediaria' && filters.intermediaria) {
-            const intVal = row.intermediaria_limpia;
-            if (intVal && intVal !== filters.intermediaria.valor) return false;
+            if (row.intermediaria_limpia !== filters.intermediaria.valor) return false;
         }
 
         // Filtro de Médico Derivante
         if (excludeFilterKey !== 'derivante' && filters.derivante) {
-            const derVal = row.nombre_solicitante || row.derivante;
-            if (derVal && derVal !== filters.derivante.valor) return false;
+            if (row.nombre_solicitante !== filters.derivante.valor) return false;
         }
 
         return true;
@@ -301,53 +211,26 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
             if (row.sede !== filters.sede.valor) return false;
         }
         if (excludeFilterKey !== 'practica' && filters.practica) {
-            const cod = row.codigo_practica || row.codigo;
-            if (cod && String(cod) !== String(filters.practica.valor)) return false;
+            if (String(row.codigo_practica) !== String(filters.practica.valor)) return false;
         }
         if (excludeFilterKey !== 'os' && filters.os) {
-            const osVal = row.os_nombre_limpio || row.nombre_os;
-            if (osVal && osVal !== filters.os.valor) return false;
+            if (row.nombre_os !== filters.os.valor) return false;
         }
         if (excludeFilterKey !== 'intermediaria' && filters.intermediaria) {
-            const intVal = row.intermediaria_limpia;
-            if (intVal && intVal !== filters.intermediaria.valor) return false;
+            if (row.intermediaria_limpia !== filters.intermediaria.valor) return false;
         }
         if (excludeFilterKey !== 'derivante' && filters.derivante) {
-            const derVal = row.nombre_solicitante || row.derivante;
-            if (derVal && derVal !== filters.derivante.valor) return false;
+            if (row.nombre_solicitante !== filters.derivante.valor) return false;
         }
 
         return true;
     };
 
-    // ── Resumen Filtrado (para KPIs y Gráfico de Tendencia) ────────────────
-    // Si estamos en un filtro de práctica, derivante, etc., debemos usar los datos de sus respectivas tablas de origen para el KPI
-    // ya que la tabla "resumen" no tiene columnas de OS, Práctica o Derivante.
-    let kpiDataRows = [];
-    let kpiDataRowsComp = [];
-
-    if (filters.practica) {
-        kpiDataRows = (baseData.practicas_por_mes || []).filter(r => matchesCommonFilters(r));
-        if (compararActivo) kpiDataRowsComp = (baseData.practicas_por_mes || []).filter(r => matchesCommonFiltersComp(r));
-    } else if (filters.derivante) {
-        kpiDataRows = (baseData.derivantes_por_mes || []).filter(r => matchesCommonFilters(r));
-        if (compararActivo) kpiDataRowsComp = (baseData.derivantes_por_mes || []).filter(r => matchesCommonFiltersComp(r));
-    } else if (filters.os) {
-        kpiDataRows = (baseData.os_por_mes || []).filter(r => matchesCommonFilters(r));
-        if (compararActivo) kpiDataRowsComp = (baseData.os_por_mes || []).filter(r => matchesCommonFiltersComp(r));
-    } else if (filters.intermediaria) {
-        kpiDataRows = (baseData.int_por_mes || []).filter(r => matchesCommonFilters(r));
-        if (compararActivo) kpiDataRowsComp = (baseData.int_por_mes || []).filter(r => matchesCommonFiltersComp(r));
-    } else if (filters.sede) {
-        kpiDataRows = (baseData.resumen_sede || []).filter(r => matchesCommonFilters(r));
-        if (compararActivo) kpiDataRowsComp = (baseData.resumen_sede || []).filter(r => matchesCommonFiltersComp(r));
-    } else {
-        kpiDataRows = (baseData.resumen || []).filter(r => matchesCommonFilters(r));
-        if (compararActivo) kpiDataRowsComp = (baseData.resumen || []).filter(r => matchesCommonFiltersComp(r));
-    }
+    const currentRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
+    const compRows = compararActivo ? baseData.multidimensional.filter(r => matchesCommonFiltersComp(r)) : [];
 
     // Sorted list of months in the current range
-    const monthSet = new Set(kpiDataRows.map(r => `${r.anio}-${String(r.mes).padStart(2, '0')}`));
+    const monthSet = new Set(currentRows.map(r => `${r.anio}-${String(r.mes).padStart(2, '0')}`));
     const sortedMonths = Array.from(monthSet).sort();
 
     // ── Trend labels & series ──────────────────────────────────────
@@ -365,19 +248,17 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     }
 
     const trendByMonth = {};
-    kpiDataRows.forEach(r => {
+    currentRows.forEach(r => {
         const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
-        const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
-        trendByMonth[k] = (trendByMonth[k] || 0) + cant;
+        trendByMonth[k] = (trendByMonth[k] || 0) + r.cantidad;
     });
 
     let trendSeries = [];
     if (compararActivo) {
         const trendByMonthComp = {};
-        kpiDataRowsComp.forEach(r => {
+        compRows.forEach(r => {
             const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
-            const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
-            trendByMonthComp[k] = (trendByMonthComp[k] || 0) + cant;
+            trendByMonthComp[k] = (trendByMonthComp[k] || 0) + r.cantidad;
         });
 
         const actualData = sortedMonths.map(k => trendByMonth[k] || 0);
@@ -399,9 +280,9 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     // ── KPI totals (current + comparison) ─────────────────────────
     const kpiPorModulo = {};
     permitidos.forEach(m => {
-        kpiPorModulo[m] = kpiDataRows
+        kpiPorModulo[m] = currentRows
             .filter(r => r.modulo === m)
-            .reduce((s, r) => s + (r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0)), 0);
+            .reduce((s, r) => s + r.cantidad, 0);
     });
     const kpiTotal = Object.values(kpiPorModulo).reduce((a, b) => a + b, 0);
 
@@ -409,9 +290,9 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     let kpiTotalComp = 0;
     if (compararActivo) {
         permitidos.forEach(m => {
-            kpiPorModuloComp[m] = kpiDataRowsComp
+            kpiPorModuloComp[m] = compRows
                 .filter(r => r.modulo === m)
-                .reduce((s, r) => s + (r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0)), 0);
+                .reduce((s, r) => s + r.cantidad, 0);
         });
         kpiTotalComp = Object.values(kpiPorModuloComp).reduce((a, b) => a + b, 0);
     }
@@ -419,12 +300,11 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     // ── Sparklines ────────────────────────────────────────────────
     const sparklines = { Total: sortedMonths.map(() => 0) };
     permitidos.forEach(mod => {
-        const modRows = kpiDataRows.filter(r => r.modulo === mod);
+        const modRows = currentRows.filter(r => r.modulo === mod);
         const byMonth = {};
         modRows.forEach(r => {
             const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`;
-            const cant = r.cantidad !== undefined ? r.cantidad : (r.total_estudios !== undefined ? r.total_estudios : 0);
-            byMonth[k] = (byMonth[k] || 0) + cant;
+            byMonth[k] = (byMonth[k] || 0) + r.cantidad;
         });
         sparklines[mod] = sortedMonths.map(k => byMonth[k] || 0);
     });
@@ -433,91 +313,62 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     });
 
     // ── OS distribution ───────────────────────────────────────
-    // Si hay filtro de derivante, usamos la vista cruzada derivante×OS
-    let osEntries, osCompMap = {};
-    const osSourceData = filters.derivante
-        ? (baseData.os_por_derivante || []).filter(r =>
-            r.nombre_solicitante === filters.derivante.valor &&
-            matchesCommonFilters(r, 'os')
-          )
-        : (baseData.os_por_mes || []).filter(r => matchesCommonFilters(r, 'os'));
+    const osRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'os'));
     const osMap = {};
-    osSourceData.forEach(r => {
-        const key = r.nombre_os || r.os_nombre_limpio;
-        if (key) osMap[key] = (osMap[key] || 0) + r.cantidad;
+    osRows.forEach(r => {
+        if (r.nombre_os) osMap[r.nombre_os] = (osMap[r.nombre_os] || 0) + r.cantidad;
     });
-    osEntries = Object.entries(osMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const osEntries = Object.entries(osMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
+    let osCompMap = {};
     if (compararActivo) {
-        const osSourceComp = filters.derivante
-            ? (baseData.os_por_derivante || []).filter(r =>
-                r.nombre_solicitante === filters.derivante.valor &&
-                matchesCommonFiltersComp(r, 'os')
-              )
-            : (baseData.os_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'os'));
-        osSourceComp.forEach(r => {
-            const key = r.nombre_os || r.os_nombre_limpio;
-            if (key) osCompMap[key] = (osCompMap[key] || 0) + r.cantidad;
+        const osRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'os'));
+        osRowsComp.forEach(r => {
+            if (r.nombre_os) osCompMap[r.nombre_os] = (osCompMap[r.nombre_os] || 0) + r.cantidad;
         });
     }
 
     // ── INT distribution ──────────────────────────────────────────
-    // Si hay filtro de derivante, usamos la vista cruzada derivante×Intermediaria
-    const intSourceData = filters.derivante
-        ? (baseData.int_por_derivante || []).filter(r =>
-            r.nombre_solicitante === filters.derivante.valor &&
-            matchesCommonFilters(r, 'intermediaria')
-          )
-        : (baseData.int_por_mes || []).filter(r => matchesCommonFilters(r, 'intermediaria'));
+    const intRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'intermediaria'));
     const intMap = {};
-    intSourceData.forEach(r => {
+    intRows.forEach(r => {
         if (r.intermediaria_limpia) intMap[r.intermediaria_limpia] = (intMap[r.intermediaria_limpia] || 0) + r.cantidad;
     });
     const intEntries = Object.entries(intMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     const intCompMap = {};
     if (compararActivo) {
-        const intSourceComp = filters.derivante
-            ? (baseData.int_por_derivante || []).filter(r =>
-                r.nombre_solicitante === filters.derivante.valor &&
-                matchesCommonFiltersComp(r, 'intermediaria')
-              )
-            : (baseData.int_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'intermediaria'));
-        intSourceComp.forEach(r => {
+        const intRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'intermediaria'));
+        intRowsComp.forEach(r => {
             if (r.intermediaria_limpia) intCompMap[r.intermediaria_limpia] = (intCompMap[r.intermediaria_limpia] || 0) + r.cantidad;
         });
     }
 
     // ── Sede distribution ──────────────────────────────────────────
-    // Si hay filtro de derivante, usamos la vista cruzada derivante×Sede
-    const sedeSourceData = filters.derivante
-        ? (baseData.sede_por_derivante_mes || []).filter(r =>
-            r.nombre_solicitante === filters.derivante.valor &&
-            matchesCommonFilters(r, 'sede')
-          )
-        : (baseData.resumen_sede || []).filter(r => matchesCommonFilters(r, 'sede'));
+    const sedeRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'sede'));
     const sedeMap = {};
-    sedeSourceData.forEach(r => {
-        if (r.sede) sedeMap[r.sede] = (sedeMap[r.sede] || 0) + (r.total_estudios !== undefined ? r.total_estudios : r.cantidad);
+    sedeRows.forEach(r => {
+        if (r.sede) sedeMap[r.sede] = (sedeMap[r.sede] || 0) + r.cantidad;
     });
     const sedeEntries = Object.entries(sedeMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     const sedeCompMap = {};
     if (compararActivo) {
-        (baseData.resumen_sede || []).filter(r => matchesCommonFiltersComp(r, 'sede')).forEach(r => {
-            if (r.sede) sedeCompMap[r.sede] = (sedeCompMap[r.sede] || 0) + r.total_estudios;
+        const sedeRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'sede'));
+        sedeRowsComp.forEach(r => {
+            if (r.sede) sedeCompMap[r.sede] = (sedeCompMap[r.sede] || 0) + r.cantidad;
         });
     }
 
     // ── Top Prácticas ─────────────────────────────────────────────
-    const practicasFiltradas = (baseData.practicas_por_mes || []).filter(r => matchesCommonFilters(r, 'practica'));
+    const practicasRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'practica'));
     const practicasMap = {};
-    practicasFiltradas.forEach(r => {
+    practicasRows.forEach(r => {
         if (!r.codigo_practica) return;
         if (!practicasMap[r.codigo_practica]) {
             practicasMap[r.codigo_practica] = { nombre_practica: r.nombre_practica, total: 0 };
         }
-        practicasMap[r.codigo_practica].total += r.total_estudios;
+        practicasMap[r.codigo_practica].total += r.cantidad;
     });
     const topPracticas = Object.entries(practicasMap)
         .map(([codigo, v]) => ({ codigo_practica: codigo, nombre_practica: v.nombre_practica, total_estudios: v.total }))
@@ -526,15 +377,16 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     const practicasCompMap = {};
     if (compararActivo) {
-        (baseData.practicas_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'practica')).forEach(r => {
-            if (r.codigo_practica) practicasCompMap[r.codigo_practica] = (practicasCompMap[r.codigo_practica] || 0) + r.total_estudios;
+        const practicasRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'practica'));
+        practicasRowsComp.forEach(r => {
+            if (r.codigo_practica) practicasCompMap[r.codigo_practica] = (practicasCompMap[r.codigo_practica] || 0) + r.cantidad;
         });
     }
 
     // ── Top Derivantes ────────────────────────────────────────────
-    const derivantesFiltrados = (baseData.derivantes_por_mes || []).filter(r => matchesCommonFilters(r, 'derivante'));
+    const derivantesRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'derivante'));
     const derivantesMap = {};
-    derivantesFiltrados.forEach(r => {
+    derivantesRows.forEach(r => {
         if (!r.nombre_solicitante) return;
         derivantesMap[r.nombre_solicitante] = (derivantesMap[r.nombre_solicitante] || 0) + r.cantidad;
     });
@@ -545,31 +397,24 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     const derivantesCompMap = {};
     if (compararActivo) {
-        (baseData.derivantes_por_mes || []).filter(r => matchesCommonFiltersComp(r, 'derivante')).forEach(r => {
+        const derivantesRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'derivante'));
+        derivantesRowsComp.forEach(r => {
             if (r.nombre_solicitante) derivantesCompMap[r.nombre_solicitante] = (derivantesCompMap[r.nombre_solicitante] || 0) + r.cantidad;
         });
     }
 
     // ── Derivantes por servicio unificado ─────────────────────────
-    const servFiltrado = (baseData.derivantes_por_servicio || []).filter(r => {
-        return permitidos.includes(r.modulo) && (!filters.modulo || r.modulo === filters.modulo.valor);
-    });
+    const servRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
     const servMap = {};
-    servFiltrado.forEach(r => {
-        if (r.servicio_unificado) servMap[r.servicio_unificado] = (servMap[r.servicio_unificado] || 0) + r.total_estudios;
+    servRows.forEach(r => {
+        if (r.servicio_unificado) servMap[r.servicio_unificado] = (servMap[r.servicio_unificado] || 0) + r.cantidad;
     });
     const servEntries = Object.entries(servMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     // ── Área distribution (Ambulatorio vs Internado) ──────────────────────
-    // Si hay filtro de derivante, usamos la vista cruzada derivante×Área
-    const areaSourceData = filters.derivante
-        ? (baseData.area_por_derivante || []).filter(r =>
-            r.nombre_solicitante === filters.derivante.valor &&
-            matchesCommonFilters(r)
-          )
-        : (baseData.area_por_mes || []).filter(r => matchesCommonFilters(r));
+    const areaRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
     const areaMap = { Ambulatorio: 0, Internado: 0 };
-    areaSourceData.forEach(r => {
+    areaRows.forEach(r => {
         if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
             areaMap[r.area_tipo] += r.cantidad;
         }
@@ -580,14 +425,9 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     let areaDataComp = null;
     if (compararActivo) {
-        const areaSourceComp = filters.derivante
-            ? (baseData.area_por_derivante || []).filter(r =>
-                r.nombre_solicitante === filters.derivante.valor &&
-                matchesCommonFiltersComp(r)
-              )
-            : (baseData.area_por_mes || []).filter(r => matchesCommonFiltersComp(r));
+        const areaRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r));
         const areaMapComp = { Ambulatorio: 0, Internado: 0 };
-        areaSourceComp.forEach(r => {
+        areaRowsComp.forEach(r => {
             if (r.area_tipo === 'Ambulatorio' || r.area_tipo === 'Internado') {
                 areaMapComp[r.area_tipo] += r.cantidad;
             }

@@ -278,19 +278,14 @@ def refresh_materialized_views():
     DB_PORT = "5432"
     
     views = [
-        "gold.gold_vw_di_practicas_agg",
-        "gold.gold_vw_di_derivantes_agg",
+        "gold.gold_vw_di_multidimensional_saneado",
         "gold.gold_vw_di_os_por_intermediaria",
-        "gold.gold_vw_di_resumen_por_sede_mes",
         "gold.gold_vw_di_sede_por_practica",
         "gold.gold_vw_di_sede_por_derivante",
         "gold.gold_vw_di_sede_por_os",
         "gold.gold_vw_di_sede_por_intermediaria",
-        "gold.gold_vw_di_practicas_por_mes",
-        "gold.gold_vw_di_derivantes_por_mes",
-        "gold.gold_vw_di_os_por_mes",
-        "gold.gold_vw_di_intermediaria_por_mes",
-        "gold.gold_vw_di_area_por_mes"
+        "gold.gold_vw_di_derivantes_por_servicio",
+        "gold.gold_vw_di_servicio_por_derivante"
     ]
     try:
         conn = psycopg2.connect(

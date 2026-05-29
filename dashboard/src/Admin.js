@@ -689,6 +689,7 @@ window.applyBulkUpdate = async () => {
     if (!name) return alert("Elegí un nombre unificado");
     const ids = Array.from(selectedIds);
     await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ nombre_unificado: name }).in('codigo', ids);
+    try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
     window.clearSelection();
     loadCodigosNomenclador();
 };
@@ -1077,7 +1078,7 @@ function renderSedesTable(container, data) {
 }
 
 // Updates
-window.updateClasificacion = async (codigo, value) => { const es_estudio = value === 'null' ? null : (value === 'true'); await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ es_estudio }).eq('codigo', codigo); loadCodigosNomenclador(); };
+window.updateClasificacion = async (codigo, value) => { const es_estudio = value === 'null' ? null : (value === 'true'); await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ es_estudio }).eq('codigo', codigo); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } loadCodigosNomenclador(); };
 window.updateNombreUnificado = async (codigo, value) => { 
     await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ nombre_unificado: value }).eq('codigo', codigo);
     // Si es un nombre nuevo, lo agregamos al maestro automáticamente
@@ -1086,10 +1087,11 @@ window.updateNombreUnificado = async (codigo, value) => {
         await loadMasterNames();
         updateMasterDatalist();
     }
+    try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
 };
-window.updateOSCompleto = async (nombre_crudo, value) => { await supabase.schema('silver_shared').from('silver_os_equivalencias').update({ os_nombre_limpio: value }).eq('os_nombre_crudo', nombre_crudo); };
-window.updateIntLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').update({ intermediaria_limpia: value }).eq('id', id); };
-window.updateSedeLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_sedes_equivalencias').update({ sede: value }).eq('id', id); };
+window.updateOSCompleto = async (nombre_crudo, value) => { await supabase.schema('silver_shared').from('silver_os_equivalencias').update({ os_nombre_limpio: value }).eq('os_nombre_crudo', nombre_crudo); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } };
+window.updateIntLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').update({ intermediaria_limpia: value }).eq('id', id); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } };
+window.updateSedeLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_sedes_equivalencias').update({ sede: value }).eq('id', id); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } };
 
 window.updateDerivanteUnificado = async (nombre_original, value) => {
     const val = value.trim();
@@ -1123,6 +1125,7 @@ window.updateDerivanteUnificado = async (nombre_original, value) => {
                 break;
             }
         }
+        try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
     } catch (err) {
         console.error('Error al unificar derivante:', err);
     }
@@ -1164,6 +1167,7 @@ window.updateDerivanteServicio = async (nombre_original, value) => {
                 }
             }
         }
+        try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
     } catch (err) {
         console.error('Error al actualizar servicio del derivante:', err);
     }
