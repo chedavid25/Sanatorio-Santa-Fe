@@ -279,11 +279,28 @@ function renderIntChart(int, filters) {
                     },
                 },
             },
-            dataLabels: { enabled: false },
+            dataLabels: {
+                enabled: true,
+                style: {
+                    fontSize: '11px',
+                    fontFamily: 'Outfit, sans-serif',
+                    fontWeight: 'bold',
+                },
+                formatter: (val, opts) => {
+                    return val > 3 ? val.toFixed(1) + '%' : '';
+                },
+                dropShadow: { enabled: false }
+            },
             stroke: { show: true, width: 2, colors: ['#fff'] },
             tooltip: {
                 theme: 'light',
-                y: { formatter: val => val.toLocaleString() + ' estudios' },
+                y: {
+                    formatter: (val, opts) => {
+                        const total = opts.globals.series.reduce((a, b) => a + b, 0);
+                        const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                        return `${val.toLocaleString()} estudios (${percent}%)`;
+                    }
+                }
             },
         };
     }
@@ -400,11 +417,28 @@ function renderSedeChart(sede, filters) {
                     },
                 },
             },
-            dataLabels: { enabled: false },
+            dataLabels: {
+                enabled: true,
+                style: {
+                    fontSize: '11px',
+                    fontFamily: 'Outfit, sans-serif',
+                    fontWeight: 'bold',
+                },
+                formatter: (val, opts) => {
+                    return val > 3 ? val.toFixed(1) + '%' : '';
+                },
+                dropShadow: { enabled: false }
+            },
             stroke: { show: true, width: 2, colors: ['#fff'] },
             tooltip: {
                 theme: 'light',
-                y: { formatter: val => val.toLocaleString() + ' estudios' },
+                y: {
+                    formatter: (val, opts) => {
+                        const total = opts.globals.series.reduce((a, b) => a + b, 0);
+                        const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                        return `${val.toLocaleString()} estudios (${percent}%)`;
+                    }
+                }
             },
         };
     }
@@ -516,11 +550,28 @@ function renderAreaChart(area, filters) {
                     },
                 },
             },
-            dataLabels: { enabled: false },
+            dataLabels: {
+                enabled: true,
+                style: {
+                    fontSize: '11px',
+                    fontFamily: 'Outfit, sans-serif',
+                    fontWeight: 'bold',
+                },
+                formatter: (val, opts) => {
+                    return val > 3 ? val.toFixed(1) + '%' : '';
+                },
+                dropShadow: { enabled: false }
+            },
             stroke: { show: true, width: 2, colors: ['#fff'] },
             tooltip: {
                 theme: 'light',
-                y: { formatter: val => val.toLocaleString() + ' estudios' },
+                y: {
+                    formatter: (val, opts) => {
+                        const total = opts.globals.series.reduce((a, b) => a + b, 0);
+                        const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                        return `${val.toLocaleString()} estudios (${percent}%)`;
+                    }
+                }
             },
         };
     }

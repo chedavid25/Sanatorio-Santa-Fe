@@ -14,10 +14,7 @@ export function renderRecoverPassword(container, onBack) {
                             <div class="d-flex flex-column h-100">
                                 <div class="mb-4 mb-md-5 text-center">
                                     <a href="/" class="d-block auth-logo">
-                                        <img src="/assets/images/logo-gsf.png" alt="Sanatorio Santa Fe" height="80"> 
-                                        <div class="mt-3">
-                                            <span class="logo-txt fw-bold text-primary" style="font-size: 1.4rem;">Sanatorio Santa Fe</span>
-                                        </div>
+                                        <img src="/assets/images/Logo SSF Texto solo.png" alt="Sanatorio Santa Fe" height="95"> 
                                     </a>
                                 </div>
                                 <div class="auth-content my-auto">
@@ -55,7 +52,7 @@ export function renderRecoverPassword(container, onBack) {
                 </div>
                 <div class="col-xxl-9 col-lg-8 col-md-7">
                     <div class="auth-bg pt-md-5 p-4 d-flex">
-                        <div class="bg-overlay" style="background: linear-gradient(135deg, rgba(24, 95, 165, 0.9) 0%, rgba(93, 202, 165, 0.8) 100%);"></div>
+                        <div class="bg-overlay" style="background: linear-gradient(135deg, rgba(0, 72, 188, 0.85) 0%, rgba(0, 45, 83, 0.95) 100%);"></div>
                         <ul class="bg-bubbles">
                             <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
                         </ul>

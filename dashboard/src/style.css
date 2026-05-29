@@ -40,6 +40,17 @@ html, body, #app {
     color: rgba(255, 255, 255, 0.5) !important;
 }
 
+/* Ocultar iconos custom por defecto cuando el menú está expandido */
+#sidebar-menu ul li a i.custom-sidebar-icon {
+    display: none !important;
+}
+
+/* Mostrar iconos custom únicamente cuando el menú está colapsado */
+body.vertical-collpsed #sidebar-menu ul li a i.custom-sidebar-icon,
+body[data-sidebar-size="sm"] #sidebar-menu ul li a i.custom-sidebar-icon {
+    display: inline-block !important;
+}
+
 .menu-title {
     color: rgba(255, 255, 255, 0.3) !important;
 }

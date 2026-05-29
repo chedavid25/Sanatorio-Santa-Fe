@@ -3,10 +3,10 @@ import { supabase } from './supabase'
 export const MODULOS = ['Video', 'Tomo', 'Resonancia', 'Eco'];
 export const MODULO_COLORS = ['#004884', '#0072bc', '#56abe8', '#2a8ed2'];
 export const MODULO_LABELS = {
-    Video:      'Videoendoscopía',
-    Tomo:       'Tomografía',
-    Resonancia: 'Resonancia',
-    Eco:        'Ecografía',
+    Video:      'Videoendoscopia Digestiva',
+    Tomo:       'Tomografia Computada',
+    Resonancia: 'Resonancia Magnetica Nuclear',
+    Eco:        'Ecografias y Eco Doppler',
 };
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 

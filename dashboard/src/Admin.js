@@ -110,12 +110,13 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
             <div data-simplebar class="h-100">
                 <div id="sidebar-menu">
                     <ul class="metismenu list-unstyled" id="side-menu">
-                        <li><a href="/" class="waves-effect"><span>Volver al Dashboard</span></a></li>
+                        <li><a href="/" class="waves-effect"><i class="bx bx-arrow-back custom-sidebar-icon"></i><span>Volver al Dashboard</span></a></li>
                         <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Administración</li>
                         
-                        ${canSaneamiento ? `
+                         ${canSaneamiento ? `
                         <li class="${activeAdminSection === 'saneamiento' ? 'mm-active' : ''}" id="sidebar-saneamiento-li">
                             <a href="javascript:void(0);" id="sidebar-saneamiento-btn" class="waves-effect ${activeAdminSection === 'saneamiento' ? 'active' : ''}">
+                                <i class="bx bx-data custom-sidebar-icon"></i>
                                 <span>Saneamiento de datos</span>
                             </a>
                         </li>` : ''}
@@ -123,6 +124,7 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
                         ${isAdmin ? `
                         <li class="${activeAdminSection === 'usuarios' ? 'mm-active' : ''}" id="sidebar-usuarios-li">
                             <a href="javascript:void(0);" id="sidebar-usuarios-btn" class="waves-effect ${activeAdminSection === 'usuarios' ? 'active' : ''}">
+                                <i class="bx bx-user custom-sidebar-icon"></i>
                                 <span>Gestión de Usuarios</span>
                             </a>
                         </li>` : ''}

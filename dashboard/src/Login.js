@@ -14,12 +14,12 @@ export function renderLogin(container, onRecover, initialError = '') {
                             <div class="d-flex flex-column h-100">
                                 <div class="mb-4 mb-md-5 text-center">
                                     <a href="/" class="d-block auth-logo">
-                                        <img src="/assets/images/logo-gsf.png" alt="Sanatorio Santa Fe" height="100">
+                                        <img src="/assets/images/Logo SSF Texto solo.png" alt="Sanatorio Santa Fe" height="95">
                                     </a>
                                 </div>
                                 <div class="auth-content my-auto mx-auto" style="max-width: 420px; width: 100%;">
                                     <div class="text-center">
-                                        <h4 class="mb-0 fw-bold">Sistema BI</h4>
+                                        <h4 class="mb-0 fw-bold">Tablero de Control</h4>
                                         <p class="text-muted mt-2">Ingresa tus credenciales para acceder al panel de Sanatorio Santa Fe.</p>
                                     </div>
                                     <form class="mt-4 pt-2" id="login-form">
@@ -70,7 +70,7 @@ export function renderLogin(container, onRecover, initialError = '') {
                 </div>
                 <div class="col-xxl-9 col-lg-8 col-md-7">
                     <div class="auth-bg pt-md-5 p-4 d-flex">
-                        <div class="bg-overlay" style="background: linear-gradient(135deg, rgba(24, 95, 165, 0.95) 0%, rgba(93, 202, 165, 0.85) 100%);"></div>
+                        <div class="bg-overlay" style="background: linear-gradient(135deg, rgba(0, 72, 188, 0.85) 0%, rgba(0, 45, 83, 0.95) 100%);"></div>
                         <ul class="bg-bubbles">
                             <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
                         </ul>
