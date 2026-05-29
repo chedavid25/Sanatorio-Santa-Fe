@@ -172,7 +172,7 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
         // Filtro de Práctica
         if (excludeFilterKey !== 'practica' && filters.practica) {
-            if (String(row.codigo_practica) !== String(filters.practica.valor)) return false;
+            if (row.nombre_practica !== filters.practica.valor) return false;
         }
 
         // Filtro de Obra Social
@@ -211,7 +211,7 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
             if (row.sede !== filters.sede.valor) return false;
         }
         if (excludeFilterKey !== 'practica' && filters.practica) {
-            if (String(row.codigo_practica) !== String(filters.practica.valor)) return false;
+            if (row.nombre_practica !== filters.practica.valor) return false;
         }
         if (excludeFilterKey !== 'os' && filters.os) {
             if (row.nombre_os !== filters.os.valor) return false;
@@ -364,14 +364,14 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     const practicasRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'practica'));
     const practicasMap = {};
     practicasRows.forEach(r => {
-        if (!r.codigo_practica) return;
-        if (!practicasMap[r.codigo_practica]) {
-            practicasMap[r.codigo_practica] = { nombre_practica: r.nombre_practica, total: 0 };
+        if (!r.nombre_practica) return;
+        if (!practicasMap[r.nombre_practica]) {
+            practicasMap[r.nombre_practica] = { codigo_practica: r.codigo_practica, total: 0 };
         }
-        practicasMap[r.codigo_practica].total += r.cantidad;
+        practicasMap[r.nombre_practica].total += r.cantidad;
     });
     const topPracticas = Object.entries(practicasMap)
-        .map(([codigo, v]) => ({ codigo_practica: codigo, nombre_practica: v.nombre_practica, total_estudios: v.total }))
+        .map(([nombre, v]) => ({ codigo_practica: nombre, nombre_practica: nombre, codigo_display: v.codigo_practica, total_estudios: v.total }))
         .sort((a, b) => b.total_estudios - a.total_estudios)
         .slice(0, 15);
 
@@ -379,7 +379,9 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     if (compararActivo) {
         const practicasRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'practica'));
         practicasRowsComp.forEach(r => {
-            if (r.codigo_practica) practicasCompMap[r.codigo_practica] = (practicasCompMap[r.codigo_practica] || 0) + r.cantidad;
+            if (r.nombre_practica) {
+                practicasCompMap[r.nombre_practica] = (practicasCompMap[r.nombre_practica] || 0) + r.cantidad;
+            }
         });
     }
 
@@ -469,7 +471,8 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
             labels: topPracticas.map(p => p.nombre_practica),
             data: topPracticas.map(p => p.total_estudios),
             codigos: topPracticas.map(p => p.codigo_practica),
-            dataComp: compararActivo ? topPracticas.map(p => practicasCompMap[p.codigo_practica] || 0) : null,
+            codigosDisplay: topPracticas.map(p => p.codigo_display),
+            dataComp: compararActivo ? topPracticas.map(p => practicasCompMap[p.nombre_practica] || 0) : null,
         },
         derivantes: {
             labels: topDerivantes.map(d => d.nombre_solicitante),

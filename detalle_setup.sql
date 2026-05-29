@@ -45,65 +45,91 @@ GRANT ALL ON diagnostico_imagenes.bronze_detalle_di_id_seq        TO service_rol
 -- Nota: nombre_os ya viene completo desde la API (/detalle devuelve nombreObraSocial
 -- sin truncar), por lo que no se une a silver_os_equivalencias.
 CREATE OR REPLACE VIEW diagnostico_imagenes.silver_detalle_di AS
+WITH desglosado AS (
+    SELECT 
+        b.id,
+        b.sync_timestamp,
+        b.modulo,
+        b.serv_id,
+        b.ubic_id,
+        b.me_id,
+        b.me_fecha,
+        EXTRACT(YEAR FROM b.me_fecha)::integer AS anio,
+        EXTRACT(MONTH FROM b.me_fecha)::integer AS mes,
+        b.me_edad,
+        b.area,
+        b.sexo_paciente,
+        b.localidad_paciente,
+        b.nombre_os,
+        b.intermediaria,
+        b.matricula_solicitante,
+        b.nombre_solicitante,
+        b.cantidad_practica,
+        TRIM(b.servicio) AS servicio,
+        b.consultorio,
+        b.mp_efector,
+        b.nombre_efector,
+        TRIM(unnest(string_to_array(COALESCE(b.codigo_practica, ''), ','))) AS codigo_practica_individual,
+        unnest(string_to_array(COALESCE(b.nombre_practica, ''), '/')) AS nombre_practica_individual
+    FROM diagnostico_imagenes.bronze_detalle_di b
+)
 SELECT
-    b.id,
-    b.sync_timestamp,
-    b.modulo,
-    b.serv_id,
-    b.ubic_id,
-    b.me_id,
-    b.me_fecha,
-    EXTRACT(YEAR  FROM b.me_fecha)::integer AS anio,
-    EXTRACT(MONTH FROM b.me_fecha)::integer AS mes,
-    b.me_edad,
+    d.id,
+    d.sync_timestamp,
+    d.modulo,
+    d.serv_id,
+    d.ubic_id,
+    d.me_id,
+    d.me_fecha,
+    d.anio,
+    d.mes,
+    d.me_edad,
     CASE
-        WHEN b.me_edad IS NULL   THEN 'Sin dato'
-        WHEN b.me_edad < 18      THEN '0-17'
-        WHEN b.me_edad < 30      THEN '18-29'
-        WHEN b.me_edad < 45      THEN '30-44'
-        WHEN b.me_edad < 60      THEN '45-59'
-        WHEN b.me_edad < 75      THEN '60-74'
+        WHEN d.me_edad IS NULL   THEN 'Sin dato'
+        WHEN d.me_edad < 18      THEN '0-17'
+        WHEN d.me_edad < 30      THEN '18-29'
+        WHEN d.me_edad < 45      THEN '30-44'
+        WHEN d.me_edad < 60      THEN '45-59'
+        WHEN d.me_edad < 75      THEN '60-74'
         ELSE '75+'
     END AS rango_edad,
-    b.area,
-    b.sexo_paciente,
-    b.localidad_paciente,
-    COALESCE(os.os_nombre_limpio,    b.nombre_os)              AS nombre_os,
-    b.intermediaria,
-    b.matricula_solicitante,
-    b.nombre_solicitante,
-    b.codigo_practica,
-    b.nombre_practica,
-    b.cantidad_practica,
-    TRIM(b.servicio) AS servicio,
-    b.consultorio,
-    b.mp_efector,
-    b.nombre_efector,
-
-    -- Normalizados
-    COALESCE(s.servicio_limpio,      TRIM(b.servicio))         AS servicio_limpio,
+    d.area,
+    d.sexo_paciente,
+    d.localidad_paciente,
+    COALESCE(os.os_nombre_limpio,    d.nombre_os)              AS nombre_os,
+    d.intermediaria,
+    d.matricula_solicitante,
+    d.nombre_solicitante,
+    d.codigo_practica_individual AS codigo_practica,
+    TRIM(d.nombre_practica_individual) AS nombre_practica,
+    d.cantidad_practica,
+    d.servicio,
+    d.consultorio,
+    d.mp_efector,
+    d.nombre_efector,
+    COALESCE(s.servicio_limpio,      TRIM(d.servicio))         AS servicio_limpio,
     s.sede,
-    COALESCE(i.intermediaria_limpia, TRIM(b.intermediaria))    AS intermediaria_limpia,
-    COALESCE(dev.nombre_unificado,   TRIM(b.nombre_solicitante)) AS nombre_solicitante_limpio,
+    COALESCE(i.intermediaria_limpia, TRIM(d.intermediaria))    AS intermediaria_limpia,
+    COALESCE(dev.nombre_unificado,   TRIM(d.nombre_solicitante)) AS nombre_solicitante_limpio,
     dev.servicio_unificado                                     AS derivante_servicio_unificado,
-    COALESCE(n.nombre_unificado,     TRIM(b.nombre_practica))  AS nombre_practica_limpio,
+    COALESCE(n.nombre_unificado,     TRIM(d.nombre_practica_individual))  AS nombre_practica_limpio,
     CASE
         -- Excluir estudios mamarios (punción mamaria, mamografía, ecografía mamaria) realizados en Sanatorio Santa Fe (o sedes que no sean GENERAL PAZ, ESPERANZA, SANTO TOME)
         WHEN (
-            LOWER(COALESCE(n.nombre_unificado, b.nombre_practica)) LIKE '%mama%' OR 
-            LOWER(COALESCE(n.nombre_unificado, b.nombre_practica)) LIKE '%mamo%' OR 
-            LOWER(COALESCE(n.nombre_unificado, b.nombre_practica)) LIKE '%punci%mamar%'
+            LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%mama%' OR 
+            LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%mamo%' OR 
+            LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%punci%mamar%'
         ) AND COALESCE(s.sede, 'OTRA') NOT IN ('GENERAL PAZ', 'ESPERANZA', 'SANTO TOME') THEN false
         ELSE COALESCE(n.es_estudio, true)
     END AS es_estudio
 
-FROM diagnostico_imagenes.bronze_detalle_di b
+FROM desglosado d
 LEFT JOIN silver_shared.silver_sedes_equivalencias s
-    ON TRIM(UPPER(b.servicio)) = TRIM(UPPER(s.servicio_crudo))
+    ON TRIM(UPPER(d.servicio)) = TRIM(UPPER(s.servicio_crudo))
 LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
-    ON TRIM(UPPER(b.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
+    ON TRIM(UPPER(d.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
 LEFT JOIN silver_shared.silver_derivantes_equivalencias dev
-    ON TRIM(UPPER(b.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original))
+    ON TRIM(UPPER(d.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original))
 LEFT JOIN (
     SELECT DISTINCT ON (codigo)
         codigo,
@@ -111,9 +137,9 @@ LEFT JOIN (
         es_estudio
     FROM silver_shared.silver_codigos_nomenclador
     ORDER BY codigo
-) n ON (CASE WHEN TRIM(b.codigo_practica) ~ '^\d+$' THEN CAST(TRIM(b.codigo_practica) AS integer) ELSE NULL END) = n.codigo
+) n ON (CASE WHEN TRIM(d.codigo_practica_individual) ~ '^\d+$' THEN CAST(TRIM(d.codigo_practica_individual) AS integer) ELSE NULL END) = n.codigo
 LEFT JOIN silver_shared.silver_os_equivalencias os
-    ON TRIM(UPPER(b.nombre_os)) = TRIM(UPPER(os.os_nombre_crudo));
+    ON TRIM(UPPER(d.nombre_os)) = TRIM(UPPER(os.os_nombre_crudo));
 
 GRANT SELECT ON diagnostico_imagenes.silver_detalle_di TO anon, service_role;
 

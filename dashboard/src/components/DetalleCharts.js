@@ -156,7 +156,7 @@ export function renderPracticasChart(containerId, practicas, filters) {
                 custom: ({ series, seriesIndex, dataPointIndex }) => {
                     const label = practicas.labels[dataPointIndex] || '';
                     const val = series[seriesIndex][dataPointIndex];
-                    const codigo = practicas.codigos[dataPointIndex] || '';
+                    const codigo = (practicas.codigosDisplay && practicas.codigosDisplay[dataPointIndex]) || '';
                     return `<div class="apexcharts-tooltip-title" style="font-size:12px">${label}</div>
                             <div class="px-2 py-1"><b>${val.toLocaleString()}</b> estudios<br>
                             <small class="text-muted">${codigo}</small></div>`;
