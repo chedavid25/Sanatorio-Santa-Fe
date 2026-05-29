@@ -126,7 +126,6 @@ export function renderDashboard(container, session) {
                             <li class="${dept.activo ? '' : 'text-muted'}">
                                 <a href="${dept.activo ? '#' : 'javascript:void(0);'}"
                                    class="waves-effect ${dept.activo ? '' : 'disabled'}">
-                                    <i class="${dept.icono}"></i>
                                     <span>${dept.nombre}</span>
                                     ${!dept.activo ? '<span class="badge rounded-pill bg-dark-subtle text-white-50 float-end" style="font-size:0.6rem;">PROX.</span>' : ''}
                                 </a>
