@@ -8,13 +8,18 @@ let masterNames = [];
 let sortConfig = { key: 'codigo', direction: 'asc' };
 let activeTab = 'codigos';
 let selectedIds = new Set();
-let choicesInstances = []; // Para limpiar instancias de Choices.js
 
 let activeAdminSection = 'saneamiento'; // 'saneamiento' o 'usuarios'
 let usersList = [];
 
 let derivantesPage = 1;
 const derivantesPageSize = 100;
+
+let codigosPage = 1;
+const codigosPageSize = 50;
+
+let filterService = 'Todos';
+let filterStatus = 'Todos';
 
 // Función de navegación interna expuesta al enrutador (main.js)
 function adminNavigateTo(section) {
@@ -149,19 +154,34 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
                                         <!-- Toolbar -->
                                         <div class="row mb-4 align-items-end">
                                             <div class="col-md-3">
-                                                <label class="form-label">Unidad</label>
-                                                <select class="form-select" id="filter-dept"><option value="DI">Diagnóstico por Imágenes</option></select>
+                                                <label class="form-label">Servicio</label>
+                                                <select class="form-select" id="filter-service">
+                                                    <option value="Todos">Todos los servicios</option>
+                                                    <option value="Video">Videoendoscopía</option>
+                                                    <option value="Tomo">Tomografía</option>
+                                                    <option value="Resonancia">Resonancia</option>
+                                                    <option value="Eco">Ecografía</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Estado / Clasificación</label>
+                                                <select class="form-select" id="filter-status">
+                                                    <option value="Todos">Todos los estados</option>
+                                                    <option value="null">⚠️ Pendientes</option>
+                                                    <option value="true">✅ Es estudio</option>
+                                                    <option value="false">❌ Excluidos</option>
+                                                </select>
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label">Buscador global</label>
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-search"></i></span>
-                                                    <input type="text" class="form-control" id="search-input" placeholder="Buscar por código o nombre...">
+                                                    <input type="text" class="form-control" id="search-input" placeholder="Buscar...">
                                                 </div>
                                             </div>
-                                            <div class="col-md-6 text-end">
+                                            <div class="col-md-3 text-end">
                                                 <button class="btn btn-primary" onclick="window.showMasterNamesModal()">
-                                                    <i class="bx bx-list-ul"></i> Gestionar Nombres Unificados
+                                                    <i class="bx bx-list-ul"></i> Nombres Unificados
                                                 </button>
                                             </div>
                                         </div>
@@ -473,6 +493,16 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
         document.getElementById('nav-derivantes')?.addEventListener('click', () => { activeTab = 'derivantes'; window.clearSelection(); loadDerivantes(); });
 
         document.getElementById('search-input')?.addEventListener('input', (e) => filterData(e.target.value));
+        document.getElementById('filter-service')?.addEventListener('change', (e) => {
+            filterService = e.target.value;
+            codigosPage = 1;
+            applyAndRenderCodigos();
+        });
+        document.getElementById('filter-status')?.addEventListener('change', (e) => {
+            filterStatus = e.target.value;
+            codigosPage = 1;
+            applyAndRenderCodigos();
+        });
 
         // Evento búsqueda de usuarios
         document.getElementById('search-users-input')?.addEventListener('input', (e) => {
@@ -543,48 +573,7 @@ export async function renderAdmin(container, session, initialSection = 'saneamie
     }
 }
 
-function initTableChoices() {
-    // Limpiar instancias previas para evitar fugas de memoria
-    choicesInstances.forEach(instance => instance.destroy());
-    choicesInstances = [];
 
-    // Inicializar selectores en la tabla
-    const selects = document.querySelectorAll('.choices-unified-name');
-    selects.forEach(select => {
-        const instance = new Choices(select, {
-            searchEnabled: true,
-            removeItemButton: true,
-            placeholder: true,
-            placeholderValue: 'Seleccionar...',
-            noResultsText: 'No se encontraron resultados',
-            noChoicesText: 'No hay opciones disponibles',
-            itemSelectText: '', // Quitar frase "Presiona para seleccionar"
-            classNames: {
-                containerInner: 'form-control form-control-sm',
-            }
-        });
-        
-        select.addEventListener('change', (e) => {
-            const codigo = select.getAttribute('data-codigo');
-            window.updateNombreUnificado(codigo, e.target.value);
-        });
-
-        choicesInstances.push(instance);
-    });
-
-    // Inicializar selector masivo si existe
-    const bulkSelect = document.getElementById('bulk-unified-name');
-    if (bulkSelect && !bulkSelect.classList.contains('choices__input')) {
-        const bulkInstance = new Choices(bulkSelect, {
-            searchEnabled: true,
-            placeholder: true,
-            placeholderValue: 'Asignar nombre unificado...',
-            noResultsText: 'No encontrado',
-            itemSelectText: '', // Quitar frase "Presiona para seleccionar"
-        });
-        choicesInstances.push(bulkInstance);
-    }
-}
 
 // Data Loaders
 async function loadMasterNames() {
@@ -700,20 +689,55 @@ async function loadCodigosNomenclador() {
     content.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
     const { data } = await supabase.schema('silver_shared').from('silver_codigos_nomenclador').select('*');
     currentData.codigos = data || [];
-    renderCodigosTable(content, currentData.codigos);
-    initTableChoices(); // Inicializar tras cargar
+    applyAndRenderCodigos();
+}
+
+function applyAndRenderCodigos() {
+    const queryEl = document.getElementById('search-input');
+    const q = (queryEl?.value || '').toLowerCase();
+    
+    let filtered = currentData.codigos;
+
+    // Filtro por Servicio
+    if (filterService !== 'Todos') {
+        filtered = filtered.filter(item => {
+            const s = item.servicio.toLowerCase();
+            if (filterService === 'Video' && s.includes('video')) return true;
+            if (filterService === 'Tomo' && (s.includes('tomo') || s.includes('tac'))) return true;
+            if (filterService === 'Resonancia' && (s.includes('reso') || s.includes('rmn'))) return true;
+            if (filterService === 'Eco' && s.includes('eco')) return true;
+            return false;
+        });
+    }
+
+    // Filtro por Clasificación / Estado
+    if (filterStatus !== 'Todos') {
+        filtered = filtered.filter(item => {
+            if (filterStatus === 'null') return item.es_estudio === null;
+            if (filterStatus === 'true') return item.es_estudio === true;
+            if (filterStatus === 'false') return item.es_estudio === false;
+            return true;
+        });
+    }
+
+    // Filtro por buscador de texto
+    if (q) {
+        filtered = filtered.filter(item => 
+            item.codigo.toString().includes(q) || 
+            item.nombre_original.toLowerCase().includes(q) || 
+            (item.nombre_unificado && item.nombre_unificado.toLowerCase().includes(q))
+        );
+    }
+
+    renderCodigosTable(document.getElementById('admin-codigos-content'), filtered);
 }
 
 function filterData(query) {
-    const q = query.toLowerCase();
     if (activeTab === 'codigos') {
-        const filtered = currentData.codigos.filter(item => 
-            item.codigo.toString().includes(q) || item.nombre_original.toLowerCase().includes(q) || 
-            (item.nombre_unificado && item.nombre_unificado.toLowerCase().includes(q)) || item.servicio.toLowerCase().includes(q)
-        );
-        renderCodigosTable(document.getElementById('admin-codigos-content'), filtered);
-        initTableChoices(); // Re-inicializar tras filtrar
+        codigosPage = 1;
+        applyAndRenderCodigos();
     } else if (activeTab === 'derivantes') {
+        const q = query.toLowerCase();
         const filtered = currentData.derivantes.filter(item => 
             item.nombre_original.toLowerCase().includes(q) || 
             item.nombre_unificado.toLowerCase().includes(q) || 
@@ -734,6 +758,13 @@ function renderCodigosTable(container, data) {
         return 0;
     });
 
+    const totalPages = Math.ceil(sorted.length / codigosPageSize) || 1;
+    if (codigosPage > totalPages) codigosPage = totalPages;
+    if (codigosPage < 1) codigosPage = 1;
+
+    const startIdx = (codigosPage - 1) * codigosPageSize;
+    const paginatedData = sorted.slice(startIdx, startIdx + codigosPageSize);
+
     container.innerHTML = `
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -749,7 +780,7 @@ function renderCodigosTable(container, data) {
                 </tr>
             </thead>
             <tbody>
-                ${sorted.map(item => `
+                ${paginatedData.map(item => `
                     <tr class="${item.es_estudio === null ? 'table-warning' : (item.es_estudio ? 'table-success' : 'table-danger')}">
                         <td><input type="checkbox" class="row-checkbox" value="${item.codigo}" ${selectedIds.has(item.codigo.toString()) ? 'checked' : ''} onclick="window.toggleSelection(this.value)"></td>
                         <td>${item.es_estudio === null ? '⚠️' : (item.es_estudio ? '✅' : '❌')}</td>
@@ -764,25 +795,48 @@ function renderCodigosTable(container, data) {
                             </select>
                         </td>
                         <td>
-                            <select class="form-select form-select-sm choices-unified-name" data-codigo="${item.codigo}">
-                                <option value="">Sin unificar</option>
-                                ${masterNames.map(m => `
-                                    <option value="${m.nombre}" ${item.nombre_unificado === m.nombre ? 'selected' : ''}>${m.nombre}</option>
-                                `).join('')}
-                            </select>
+                            <input type="text" class="form-control form-control-sm" 
+                                   list="master-names-list" 
+                                   value="${item.nombre_unificado || ''}" 
+                                   placeholder="Sin unificar..." 
+                                   onblur="window.updateNombreUnificado('${item.codigo}', this.value)">
                         </td>
                     </tr>
                 `).join('')}
             </tbody>
         </table>
-    </div>`;
+    </div>
+    <!-- Paginación de Códigos -->
+    <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+        <div class="text-muted font-size-13">
+            Mostrando <strong>${startIdx + 1}</strong> a <strong>${Math.min(startIdx + paginatedData.length, sorted.length)}</strong> de <strong>${sorted.length}</strong> códigos
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" ${codigosPage === 1 ? 'disabled' : ''} onclick="window.changeCodigosPage(-1)">Anterior</button>
+            <span class="align-self-center">Página <strong>${codigosPage}</strong> de <strong>${totalPages}</strong></span>
+            <button class="btn btn-sm btn-outline-secondary" ${codigosPage === totalPages ? 'disabled' : ''} onclick="window.changeCodigosPage(1)">Siguiente</button>
+        </div>
+    </div>
+    
+    <!-- Datalist global para autocompletado nativo -->
+    <datalist id="master-names-list">
+        ${masterNames.map(m => `<option value="${m.nombre}"></option>`).join('')}
+    </datalist>`;
 }
 
 window.sortData = (key) => {
     if (sortConfig.key === key) sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
     else { sortConfig.key = key; sortConfig.direction = 'asc'; }
-    renderCodigosTable(document.getElementById('admin-codigos-content'), currentData.codigos);
-    initTableChoices(); // Re-inicializar tras ordenar
+    if (activeTab === 'codigos') {
+        applyAndRenderCodigos();
+    } else {
+        renderCodigosTable(document.getElementById('admin-codigos-content'), currentData.codigos);
+    }
+};
+
+window.changeCodigosPage = (delta) => {
+    codigosPage += delta;
+    applyAndRenderCodigos();
 };
 
 // Tabs
