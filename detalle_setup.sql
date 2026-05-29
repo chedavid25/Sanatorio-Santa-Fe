@@ -87,7 +87,15 @@ SELECT
     COALESCE(dev.nombre_unificado,   TRIM(b.nombre_solicitante)) AS nombre_solicitante_limpio,
     dev.servicio_unificado                                     AS derivante_servicio_unificado,
     COALESCE(n.nombre_unificado,     TRIM(b.nombre_practica))  AS nombre_practica_limpio,
-    COALESCE(n.es_estudio,           true)                     AS es_estudio
+    CASE
+        -- Excluir estudios mamarios (punción mamaria, mamografía, ecografía mamaria) realizados en Sanatorio Santa Fe (o sedes que no sean GENERAL PAZ, ESPERANZA, SANTO TOME)
+        WHEN (
+            LOWER(COALESCE(n.nombre_unificado, b.nombre_practica)) LIKE '%mama%' OR 
+            LOWER(COALESCE(n.nombre_unificado, b.nombre_practica)) LIKE '%mamo%' OR 
+            LOWER(COALESCE(n.nombre_unificado, b.nombre_practica)) LIKE '%punci%mamar%'
+        ) AND COALESCE(s.sede, 'OTRA') NOT IN ('GENERAL PAZ', 'ESPERANZA', 'SANTO TOME') THEN false
+        ELSE COALESCE(n.es_estudio, true)
+    END AS es_estudio
 
 FROM diagnostico_imagenes.bronze_detalle_di b
 LEFT JOIN silver_shared.silver_sedes_equivalencias s
