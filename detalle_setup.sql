@@ -70,7 +70,11 @@ WITH desglosado AS (
         b.mp_efector,
         b.nombre_efector,
         TRIM(unnest(string_to_array(COALESCE(b.codigo_practica, ''), ','))) AS codigo_practica_individual,
-        unnest(string_to_array(COALESCE(b.nombre_practica, ''), '/')) AS nombre_practica_individual
+        unnest(string_to_array(COALESCE(b.nombre_practica, ''), '/')) AS nombre_practica_individual,
+        CASE 
+            WHEN b.codigo_practica IS NULL OR TRIM(b.codigo_practica) = '' THEN 0
+            ELSE array_length(string_to_array(b.codigo_practica, ','), 1)
+        END AS num_practicas
     FROM diagnostico_imagenes.bronze_detalle_di b
 )
 SELECT
@@ -102,7 +106,10 @@ SELECT
     d.nombre_solicitante,
     d.codigo_practica_individual AS codigo_practica,
     TRIM(d.nombre_practica_individual) AS nombre_practica,
-    d.cantidad_practica,
+    CASE 
+        WHEN d.num_practicas <= 1 THEN d.cantidad_practica
+        ELSE 1
+    END AS cantidad_practica,
     d.servicio,
     d.consultorio,
     d.mp_efector,
