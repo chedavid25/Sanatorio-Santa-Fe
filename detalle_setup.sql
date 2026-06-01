@@ -120,7 +120,7 @@ SELECT
             LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%mamo%' OR 
             LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%punci%mamar%'
         ) AND COALESCE(s.sede, 'OTRA') NOT IN ('GENERAL PAZ', 'ESPERANZA', 'SANTO TOME') THEN false
-        ELSE COALESCE(n.es_estudio, true)
+        ELSE COALESCE(n.es_estudio AND NOT n.excluir, true)
     END AS es_estudio
 
 FROM desglosado d
@@ -130,14 +130,15 @@ LEFT JOIN silver_shared.silver_intermediaria_equivalencias i
     ON TRIM(UPPER(d.intermediaria)) = TRIM(UPPER(i.intermediaria_cruda))
 LEFT JOIN silver_shared.silver_derivantes_equivalencias dev
     ON TRIM(UPPER(d.nombre_solicitante)) = TRIM(UPPER(dev.nombre_original))
-LEFT JOIN (
-    SELECT DISTINCT ON (codigo)
-        codigo,
-        nombre_unificado,
-        es_estudio
-    FROM silver_shared.silver_codigos_nomenclador
-    ORDER BY codigo
-) n ON (CASE WHEN TRIM(d.codigo_practica_individual) ~ '^\d+$' THEN CAST(TRIM(d.codigo_practica_individual) AS integer) ELSE NULL END) = n.codigo
+LEFT JOIN silver_shared.silver_codigos_nomenclador n 
+    ON (CASE WHEN TRIM(d.codigo_practica_individual) ~ '^\d+$' THEN CAST(TRIM(d.codigo_practica_individual) AS integer) ELSE NULL END) = n.codigo
+    AND n.servicio = CASE d.modulo
+        WHEN 'Video' THEN 'VIDEO'
+        WHEN 'Tomo' THEN 'TAC'
+        WHEN 'Resonancia' THEN 'RESO'
+        WHEN 'Eco' THEN 'ECO'
+        ELSE NULL
+    END
 LEFT JOIN silver_shared.silver_os_equivalencias os
     ON TRIM(UPPER(d.nombre_os)) = TRIM(UPPER(os.os_nombre_crudo));
 
