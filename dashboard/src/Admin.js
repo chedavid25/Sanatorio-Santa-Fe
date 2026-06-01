@@ -677,7 +677,13 @@ window.applyBulkUpdate = async () => {
     const name = bulkSelect.value;
     if (!name) return alert("Elegí un nombre unificado");
     const ids = Array.from(selectedIds);
-    await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ nombre_unificado: name }).in('codigo', ids);
+    for (const idStr of ids) {
+        const [codigo, servicio] = idStr.split('|');
+        await supabase.schema('silver_shared').from('silver_codigos_nomenclador')
+            .update({ nombre_unificado: name })
+            .eq('codigo', codigo)
+            .eq('servicio', servicio);
+    }
     try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
     window.clearSelection();
     loadCodigosNomenclador();
@@ -782,13 +788,13 @@ function renderCodigosTable(container, data) {
             <tbody>
                 ${paginatedData.map(item => `
                     <tr class="${item.es_estudio === null ? 'table-warning' : (item.es_estudio ? 'table-success' : 'table-danger')}">
-                        <td><input type="checkbox" class="row-checkbox" value="${item.codigo}" ${selectedIds.has(item.codigo.toString()) ? 'checked' : ''} onclick="window.toggleSelection(this.value)"></td>
+                        <td><input type="checkbox" class="row-checkbox" value="${item.codigo}|${item.servicio}" ${selectedIds.has(item.codigo.toString() + '|' + item.servicio) ? 'checked' : ''} onclick="window.toggleSelection(this.value)"></td>
                         <td>${item.es_estudio === null ? '⚠️' : (item.es_estudio ? '✅' : '❌')}</td>
                         <td>${item.servicio}</td>
                         <td><code>${item.codigo}</code></td>
                         <td>${item.nombre_original}</td>
                         <td>
-                            <select class="form-select form-select-sm" onchange="window.updateClasificacion('${item.codigo}', this.value)">
+                            <select class="form-select form-select-sm" onchange="window.updateClasificacion('${item.codigo}', '${item.servicio}', this.value)">
                                 <option value="null" ${item.es_estudio === null ? 'selected' : ''}>Pendiente</option>
                                 <option value="true" ${item.es_estudio === true ? 'selected' : ''}>✅ Es estudio</option>
                                 <option value="false" ${item.es_estudio === false ? 'selected' : ''}>❌ Excluir</option>
@@ -799,7 +805,7 @@ function renderCodigosTable(container, data) {
                                    list="master-names-list" 
                                    value="${item.nombre_unificado || ''}" 
                                    placeholder="Sin unificar..." 
-                                   onblur="window.updateNombreUnificado('${item.codigo}', this.value)">
+                                   onblur="window.updateNombreUnificado('${item.codigo}', '${item.servicio}', this.value)">
                         </td>
                     </tr>
                 `).join('')}
@@ -1132,9 +1138,9 @@ function renderSedesTable(container, data) {
 }
 
 // Updates
-window.updateClasificacion = async (codigo, value) => { const es_estudio = value === 'null' ? null : (value === 'true'); await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ es_estudio }).eq('codigo', codigo); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } loadCodigosNomenclador(); };
-window.updateNombreUnificado = async (codigo, value) => { 
-    await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ nombre_unificado: value }).eq('codigo', codigo);
+window.updateClasificacion = async (codigo, servicio, value) => { const es_estudio = value === 'null' ? null : (value === 'true'); await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ es_estudio }).eq('codigo', codigo).eq('servicio', servicio); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } loadCodigosNomenclador(); };
+window.updateNombreUnificado = async (codigo, servicio, value) => { 
+    await supabase.schema('silver_shared').from('silver_codigos_nomenclador').update({ nombre_unificado: value }).eq('codigo', codigo).eq('servicio', servicio);
     // Si es un nombre nuevo, lo agregamos al maestro automáticamente
     if (value && !masterNames.find(m => m.nombre === value)) {
         await supabase.schema('silver_shared').from('master_nombres_unificados').insert([{ nombre: value }]);
