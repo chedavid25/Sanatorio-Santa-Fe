@@ -120,6 +120,7 @@ SELECT
             LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%mamo%' OR 
             LOWER(COALESCE(n.nombre_unificado, d.nombre_practica_individual)) LIKE '%punci%mamar%'
         ) AND COALESCE(s.sede, 'OTRA') NOT IN ('GENERAL PAZ', 'ESPERANZA', 'SANTO TOME') THEN false
+        WHEN d.codigo_practica_individual IS NULL OR TRIM(d.codigo_practica_individual) = '' THEN false
         ELSE COALESCE(n.es_estudio AND NOT n.excluir, true)
     END AS es_estudio
 
