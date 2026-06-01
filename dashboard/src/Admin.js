@@ -855,14 +855,36 @@ async function loadDerivantes() {
     content.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
     
     try {
-        // Primero traer los nombres que ya existen en la tabla de equivalencias
-        const { data: equivData, error: equivError } = await supabase.schema('silver_shared').from('silver_derivantes_equivalencias').select('*');
-        if (equivError) throw equivError;
+        // Traer TODOS los registros de equivalencias paginados en bucle por el límite de 1000 de Supabase
+        let equivData = [];
+        let fromEq = 0;
+        let toEq = 999;
+        while (true) {
+            const { data, error } = await supabase.schema('silver_shared')
+                .from('silver_derivantes_equivalencias')
+                .select('*')
+                .range(fromEq, toEq);
+            if (error) throw error;
+            equivData = equivData.concat(data);
+            if (data.length < 1000) break;
+            fromEq += 1000;
+            toEq += 1000;
+        }
         
-        // También buscar los nombres originales que existen en el detalle pero no están en la tabla de equivalencias,
-        // para que el usuario los pueda sanear. Hacemos un select de los solicitantes únicos desde el detalle.
-        const { data: rawSol, error: rawError } = await supabase.rpc('get_unique_derivantes_from_detail');
-        if (rawError) throw rawError;
+        // Traer TODOS los derivantes únicos del detalle paginados en bucle
+        let rawSol = [];
+        let fromRaw = 0;
+        let toRaw = 999;
+        while (true) {
+            const { data, error } = await supabase
+                .rpc('get_unique_derivantes_from_detail')
+                .range(fromRaw, toRaw);
+            if (error) throw error;
+            rawSol = rawSol.concat(data);
+            if (data.length < 1000) break;
+            fromRaw += 1000;
+            toRaw += 1000;
+        }
         
         console.log('equivData:', equivData);
         console.log('rawSol:', rawSol);
