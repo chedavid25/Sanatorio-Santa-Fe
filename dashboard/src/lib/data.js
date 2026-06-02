@@ -134,14 +134,37 @@ export async function fetchSedeDetail(sede, fromAnio = null, toAnio = null) {
 }
 
 export async function fetchServicioDetail(servicioUnificado) {
-    // Obtener los derivantes específicos asociados a ese servicio unificado
-    const { data: derivantes } = await supabase.schema('gold').from('gold_vw_di_servicio_por_derivante')
-        .select('modulo,nombre_solicitante,total_derivaciones')
-        .eq('servicio_unificado', servicioUnificado)
-        .order('total_derivaciones', { ascending: false })
-        .limit(20);
+    // Obtener los derivantes específicos asociados a ese servicio unificado (puede ser un string o un array de variantes)
+    const isArray = Array.isArray(servicioUnificado);
+    let query = supabase.schema('gold').from('gold_vw_di_servicio_por_derivante')
+        .select('modulo,nombre_solicitante,total_derivaciones');
+    
+    if (isArray) {
+        query = query.in('servicio_unificado', servicioUnificado);
+    } else {
+        query = query.eq('servicio_unificado', servicioUnificado);
+    }
+
+    const { data: derivantes } = await query;
+    
+    if (!derivantes) return { derivantes: [] };
+
+    // Agrupar por nombre_solicitante para unificar si aparecen en distintas variantes de servicio
+    const grouped = {};
+    derivantes.forEach(r => {
+        const name = r.nombre_solicitante;
+        if (!grouped[name]) {
+            grouped[name] = { modulo: r.modulo, nombre_solicitante: name, total_derivaciones: 0 };
+        }
+        grouped[name].total_derivaciones += r.total_derivaciones;
+    });
+
+    const sorted = Object.values(grouped)
+        .sort((a, b) => b.total_derivaciones - a.total_derivaciones)
+        .slice(0, 20);
+
     return {
-        derivantes: derivantes || []
+        derivantes: sorted
     };
 }
 
@@ -405,13 +428,49 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
         });
     }
 
+    // Helper local para normalizar nombres quitando acentos y formateando espacios/mayúsculas
+    const normalizeName = (str) => {
+        if (!str) return '';
+        return str.normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .toLowerCase()
+                  .trim()
+                  .replace(/\s+/g, ' ');
+    };
+
     // ── Derivantes por servicio unificado ─────────────────────────
     const servRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
     const servMap = {};
     servRows.forEach(r => {
-        if (r.servicio_unificado) servMap[r.servicio_unificado] = (servMap[r.servicio_unificado] || 0) + r.cantidad;
+        if (r.servicio_unificado) {
+            const rawName = r.servicio_unificado;
+            const norm = normalizeName(rawName);
+            if (!servMap[norm]) {
+                servMap[norm] = {
+                    original: rawName,
+                    variantes: new Set([rawName]),
+                    total: 0
+                };
+            } else {
+                servMap[norm].variantes.add(rawName);
+                // Preferir mostrar el nombre que tiene tildes/acentos
+                const currentHasAccents = rawName !== rawName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const savedHasAccents = servMap[norm].original !== servMap[norm].original.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                if (currentHasAccents && !savedHasAccents) {
+                    servMap[norm].original = rawName;
+                }
+            }
+            servMap[norm].total += r.cantidad;
+        }
     });
-    const servEntries = Object.entries(servMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const servEntries = Object.values(servMap)
+        .map(e => ({
+            original: e.original,
+            variantes: Array.from(e.variantes),
+            total: e.total
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
 
     // ── Área distribution (Ambulatorio vs Internado) ──────────────────────
     const areaRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
@@ -464,8 +523,9 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
             dataComp: compararActivo ? sedeEntries.map(e => sedeCompMap[e[0]] || 0) : null,
         },
         servicioDerivante: {
-            labels: servEntries.map(e => e[0]),
-            data: servEntries.map(e => e[1])
+            labels: servEntries.map(e => e.original),
+            data: servEntries.map(e => e.total),
+            variantes: servEntries.map(e => e.variantes)
         },
         practicas: {
             labels: topPracticas.map(p => p.nombre_practica),

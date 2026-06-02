@@ -379,13 +379,13 @@ export function renderDashboard(container, session) {
         renderPracticasChart('practicas-chart', viewData.practicas, filters);
         renderDerivantesChart('derivantes-chart', viewData.derivantes, filters);
         renderDistributionCharts(viewData.os, viewData.int, viewData.sede, viewData.area, filters);
-        renderServicioDerivante(viewData.servicioDerivante, (servicio) => handleServicioFilter(servicio));
+        renderServicioDerivante(viewData.servicioDerivante, (servicio, idx) => handleServicioFilter(servicio, viewData.servicioDerivante.variantes[idx]));
     }
 
-    async function handleServicioFilter(servicio) {
+    async function handleServicioFilter(servicio, variantes) {
         if (!servicio) return;
         try {
-            const detail = await fetchServicioDetail(servicio);
+            const detail = await fetchServicioDetail(variantes || servicio);
             renderDerivantesChart('derivantes-chart', {
                 labels: detail.derivantes.map(r => r.nombre_solicitante),
                 data: detail.derivantes.map(r => r.total_derivaciones),
