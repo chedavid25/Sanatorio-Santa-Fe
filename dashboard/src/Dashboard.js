@@ -181,9 +181,9 @@ export function renderDashboard(container, session) {
                         </div>
                     </div>
 
-                    <!-- Prácticas + Derivantes -->
+                    <!-- Prácticas -->
                     <div class="row">
-                        <div class="col-xl-8">
+                        <div class="col-xl-12">
                             <div class="card">
                                 <div class="card-header d-flex align-items-center">
                                     <h4 class="card-title mb-0 flex-grow-1">Top Prácticas</h4>
@@ -194,14 +194,29 @@ export function renderDashboard(container, session) {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-4">
-                            <div class="card">
+                    </div>
+
+                    <!-- Derivantes y Servicio Médico Derivante -->
+                    <div class="row">
+                        <div class="col-xl-6 col-md-12">
+                            <div class="card" style="min-height: 420px;">
                                 <div class="card-header d-flex align-items-center">
                                     <h4 class="card-title mb-0 flex-grow-1">Top Médicos Derivantes</h4>
                                     <small class="text-muted">Hacé clic para alternar filtro de médico</small>
                                 </div>
                                 <div class="card-body">
                                     <div id="derivantes-chart" class="apex-charts"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-6 col-md-12">
+                            <div class="card animate-fade-in" style="min-height: 420px;">
+                                <div class="card-header d-flex align-items-center">
+                                    <h4 class="card-title mb-0 flex-grow-1">Distribución por Servicio Médico Derivante</h4>
+                                    <small class="text-muted">Hacé clic para ver los médicos del servicio</small>
+                                </div>
+                                <div class="card-body">
+                                    <div id="serv-distribution-chart" class="apex-charts"></div>
                                 </div>
                             </div>
                         </div>
@@ -246,21 +261,6 @@ export function renderDashboard(container, session) {
                                 </div>
                                 <div class="card-body">
                                     <div id="area-distribution-chart" class="apex-charts"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Fila Adicional: Servicio Médico Derivante -->
-                    <div class="row">
-                        <div class="col-xl-6 col-md-12">
-                            <div class="card animate-fade-in" style="min-height: 420px;">
-                                <div class="card-header d-flex align-items-center">
-                                    <h4 class="card-title mb-0 flex-grow-1">Distribución por Servicio Médico Derivante</h4>
-                                    <small class="text-muted">Hacé clic para ver los médicos del servicio</small>
-                                </div>
-                                <div class="card-body">
-                                    <div id="serv-distribution-chart" class="apex-charts"></div>
                                 </div>
                             </div>
                         </div>

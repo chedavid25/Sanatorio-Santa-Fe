@@ -18,6 +18,9 @@ const derivantesPageSize = 100;
 let codigosPage = 1;
 const codigosPageSize = 50;
 
+let osPage = 1;
+const osPageSize = 50;
+
 let filterService = 'Todos';
 let filterStatus = 'Todos';
 
@@ -750,7 +753,26 @@ function filterData(query) {
             (item.servicio_unificado && item.servicio_unificado.toLowerCase().includes(q))
         );
         renderDerivantesTable(document.getElementById('admin-derivantes-content'), filtered);
+    } else if (activeTab === 'os') {
+        osPage = 1;
+        applyAndRenderOS();
     }
+}
+
+function applyAndRenderOS() {
+    const queryEl = document.getElementById('search-input');
+    const q = (queryEl?.value || '').toLowerCase();
+    
+    let filtered = currentData.os;
+
+    if (q) {
+        filtered = filtered.filter(item => 
+            item.os_nombre_crudo.toLowerCase().includes(q) || 
+            (item.os_nombre_limpio && item.os_nombre_limpio.toLowerCase().includes(q))
+        );
+    }
+
+    renderOSTable(document.getElementById('admin-os-content'), filtered);
 }
 
 function renderCodigosTable(container, data) {
@@ -846,7 +868,65 @@ window.changeCodigosPage = (delta) => {
 };
 
 // Tabs
-async function loadOS() { const { data } = await supabase.schema('silver_shared').from('silver_os_equivalencias').select('*'); currentData.os = data || []; renderOSTable(document.getElementById('admin-os-content'), currentData.os); }
+async function loadOS() {
+    const content = document.getElementById('admin-os-content');
+    content.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
+    
+    try {
+        const { data: equivData, error: err1 } = await supabase
+            .schema('silver_shared')
+            .from('silver_os_equivalencias')
+            .select('*');
+        if (err1) throw err1;
+        
+        let rawOS = [];
+        let fromRaw = 0;
+        let toRaw = 999;
+        while (true) {
+            const { data, error } = await supabase
+                .rpc('get_unique_os_from_detail')
+                .range(fromRaw, toRaw);
+            if (error) throw error;
+            rawOS = rawOS.concat(data);
+            if (data.length < 1000) break;
+            fromRaw += 1000;
+            toRaw += 1000;
+        }
+
+        const equivMap = new Map();
+        (equivData || []).forEach(item => {
+            equivMap.set(item.os_nombre_crudo, item.os_nombre_limpio);
+        });
+
+        const combined = [];
+        (equivData || []).forEach(item => {
+            combined.push({
+                os_nombre_crudo: item.os_nombre_crudo,
+                os_nombre_limpio: item.os_nombre_limpio || '',
+                registrado: true
+            });
+        });
+
+        (rawOS || []).forEach(r => {
+            if (r.nombre_os && !equivMap.has(r.nombre_os)) {
+                combined.push({
+                    os_nombre_crudo: r.nombre_os,
+                    os_nombre_limpio: '',
+                    registrado: false
+                });
+            }
+        });
+
+        combined.sort((a, b) => a.os_nombre_crudo.localeCompare(b.os_nombre_crudo));
+
+        currentData.os = combined;
+        osPage = 1;
+        applyAndRenderOS();
+    } catch (err) {
+        console.error('Error cargando obras sociales:', err);
+        content.innerHTML = `<div class="alert alert-danger">Error al cargar obras sociales: ${err.message || err}</div>`;
+    }
+}
 async function loadIntermediarias() { const { data } = await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').select('*'); currentData.int = data || []; renderIntTable(document.getElementById('admin-int-content'), currentData.int); }
 async function loadSedes() { const { data } = await supabase.schema('silver_shared').from('silver_sedes_equivalencias').select('*'); currentData.sedes = data || []; renderSedesTable(document.getElementById('admin-sedes-content'), currentData.sedes); }
 async function loadDerivantes() {
@@ -1147,9 +1227,58 @@ window.changeDerivantesPage = (delta) => {
 };
 
 function renderOSTable(container, data) {
-    container.innerHTML = `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Estado</th><th>Nombre crudo</th><th>Nombre completo</th></tr></thead>
-    <tbody>${data.map(item => `<tr><td>${item.os_nombre_limpio ? '✅' : '⚠️'}</td><td>${item.os_nombre_crudo}</td><td><input type="text" class="form-control form-control-sm" value="${item.os_nombre_limpio || ''}" onblur="window.updateOSCompleto('${item.os_nombre_crudo}', this.value)"></td></tr>`).join('')}</tbody></table></div>`;
+    if (!container) return;
+
+    const totalPages = Math.ceil(data.length / osPageSize) || 1;
+    if (osPage > totalPages) osPage = totalPages;
+    if (osPage < 1) osPage = 1;
+
+    const startIdx = (osPage - 1) * osPageSize;
+    const paginatedData = data.slice(startIdx, startIdx + osPageSize);
+
+    container.innerHTML = `
+    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                <tr>
+                    <th style="width: 80px;">Estado</th>
+                    <th>Nombre Crudo (Transacciones)</th>
+                    <th>Nombre Completo (Saneado)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${paginatedData.map(item => `
+                    <tr>
+                        <td>${item.os_nombre_limpio ? '✅' : '⚠️'}</td>
+                        <td><strong>${item.os_nombre_crudo}</strong></td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" 
+                                   value="${item.os_nombre_limpio}" 
+                                   placeholder="Escriba nombre unificado..."
+                                   onblur="window.updateOSCompleto('${item.os_nombre_crudo.replace(/'/g, "\\'")}', this.value)">
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    <!-- Paginación de Obras Sociales -->
+    <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+        <div class="text-muted font-size-13">
+            Mostrando <strong>${startIdx + 1}</strong> a <strong>${Math.min(startIdx + paginatedData.length, data.length)}</strong> de <strong>${data.length}</strong> obras sociales
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" ${osPage === 1 ? 'disabled' : ''} onclick="window.changeOSPage(-1)">Anterior</button>
+            <span class="align-self-center">Página <strong>${osPage}</strong> de <strong>${totalPages}</strong></span>
+            <button class="btn btn-sm btn-outline-secondary" ${osPage === totalPages ? 'disabled' : ''} onclick="window.changeOSPage(1)">Siguiente</button>
+        </div>
+    </div>`;
 }
+
+window.changeOSPage = (delta) => {
+    osPage += delta;
+    applyAndRenderOS();
+};
 function renderIntTable(container, data) {
     container.innerHTML = `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>GECLISA</th><th>Limpio</th></tr></thead><tbody>
     ${data.map(i => `<tr><td>${i.intermediaria_cruda}</td><td><input type="text" class="form-control form-control-sm" value="${i.intermediaria_limpia || ''}" onblur="window.updateIntLimpia(${i.id}, this.value)"></td></tr>`).join('')}</tbody></table></div>`;
@@ -1171,7 +1300,40 @@ window.updateNombreUnificado = async (codigo, servicio, value) => {
     }
     try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
 };
-window.updateOSCompleto = async (nombre_crudo, value) => { await supabase.schema('silver_shared').from('silver_os_equivalencias').update({ os_nombre_limpio: value }).eq('os_nombre_crudo', nombre_crudo); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } };
+window.updateOSCompleto = async (nombre_crudo, value) => {
+    const val = value.trim();
+    
+    const item = currentData.os.find(o => o.os_nombre_crudo === nombre_crudo);
+    if (item) {
+        item.os_nombre_limpio = val;
+    }
+
+    try {
+        if (!val) {
+            await supabase.schema('silver_shared').from('silver_os_equivalencias').delete().eq('os_nombre_crudo', nombre_crudo);
+        } else {
+            const { data } = await supabase.schema('silver_shared').from('silver_os_equivalencias').select('id').eq('os_nombre_crudo', nombre_crudo).maybeSingle();
+            if (data) {
+                await supabase.schema('silver_shared').from('silver_os_equivalencias').update({ os_nombre_limpio: val }).eq('id', data.id);
+            } else {
+                await supabase.schema('silver_shared').from('silver_os_equivalencias').insert([{ os_nombre_crudo: nombre_crudo, os_nombre_limpio: val }]);
+            }
+        }
+        
+        const rows = document.querySelectorAll('#admin-os-content tbody tr');
+        for (const row of rows) {
+            const origCell = row.cells[1];
+            if (origCell && origCell.textContent.trim() === nombre_crudo.trim()) {
+                row.cells[0].textContent = val ? '✅' : '⚠️';
+                break;
+            }
+        }
+        
+        try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
+    } catch (err) {
+        console.error('Error al unificar obra social:', err);
+    }
+};
 window.updateIntLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_intermediaria_equivalencias').update({ intermediaria_limpia: value }).eq('id', id); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } };
 window.updateSedeLimpia = async (id, value) => { await supabase.schema('silver_shared').from('silver_sedes_equivalencias').update({ sede: value }).eq('id', id); try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); } };
 
