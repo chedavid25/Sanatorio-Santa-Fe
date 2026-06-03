@@ -305,9 +305,6 @@ export function renderDashboard(container, session) {
     loadLastSync();
 
     // ── State ──────────────────────────────────────────────────
-    let cachedBaseData = null;
-    let cachedMinAnio = null;
-    let cachedMaxAnio = null;
     let currentLoadGen = 0;
     let compararActivo = false;
     let anioComparacion = String(currentYear - 1);
@@ -394,9 +391,12 @@ export function renderDashboard(container, session) {
     }
 
     // ── Filter change listener ─────────────────────────────────
-    const unsubscribe = onFilterChange(filters => {
-        if (!cachedBaseData) return;
-        renderAll(cachedBaseData, filters);
+    const unsubscribe = onFilterChange(async (filters) => {
+        const yearRange = fetchYearRange();
+        if (!yearRange) return;
+        const { minAnio, maxAnio } = yearRange;
+        const baseData = await fetchAllBaseData(minAnio, maxAnio);
+        renderAll(baseData, filters);
     });
 
     // ── Load base data ─────────────────────────────────────────
@@ -418,11 +418,7 @@ export function renderDashboard(container, session) {
         if (!yearRange) return; // DOM desmontado
         const { minAnio, maxAnio } = yearRange;
 
-        if (cachedBaseData && cachedMinAnio <= minAnio && cachedMaxAnio >= maxAnio) {
-            renderAll(cachedBaseData, getFilters());
-            return;
-        }
-
+        // Ya no verificamos variables locales ya que delegamos la caché global en lib/data
         const loadGen = ++currentLoadGen;
 
         try {
@@ -436,11 +432,7 @@ export function renderDashboard(container, session) {
             
             if (loadGen !== currentLoadGen) return;
 
-            cachedBaseData = baseData;
-            cachedMinAnio = minAnio;
-            cachedMaxAnio = maxAnio;
-
-            renderAll(cachedBaseData, getFilters());
+            renderAll(baseData, getFilters());
         } catch (error) {
             if (loadGen !== currentLoadGen) return;
             console.error('Error al cargar datos', error);
