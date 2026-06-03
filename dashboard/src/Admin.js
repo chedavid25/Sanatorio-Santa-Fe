@@ -895,22 +895,22 @@ async function loadOS() {
 
         const equivMap = new Map();
         (equivData || []).forEach(item => {
-            equivMap.set(item.os_nombre_crudo, item.os_nombre_limpio);
+            equivMap.set(item.os_nombre_crudo.trim().toUpperCase(), item.os_nombre_limpio);
         });
 
         const combined = [];
         (equivData || []).forEach(item => {
             combined.push({
-                os_nombre_crudo: item.os_nombre_crudo,
+                os_nombre_crudo: item.os_nombre_crudo.trim(),
                 os_nombre_limpio: item.os_nombre_limpio || '',
                 registrado: true
             });
         });
 
         (rawOS || []).forEach(r => {
-            if (r.nombre_os && !equivMap.has(r.nombre_os)) {
+            if (r.nombre_os && !equivMap.has(r.nombre_os.trim().toUpperCase())) {
                 combined.push({
-                    os_nombre_crudo: r.nombre_os,
+                    os_nombre_crudo: r.nombre_os.trim(),
                     os_nombre_limpio: '',
                     registrado: false
                 });
@@ -1301,6 +1301,7 @@ window.updateNombreUnificado = async (codigo, servicio, value) => {
     try { await supabase.rpc('refresh_multidimensional_view'); } catch (e) { console.error(e); }
 };
 window.updateOSCompleto = async (nombre_crudo, value) => {
+    nombre_crudo = nombre_crudo.trim();
     const val = value.trim();
     
     const item = currentData.os.find(o => o.os_nombre_crudo === nombre_crudo);
