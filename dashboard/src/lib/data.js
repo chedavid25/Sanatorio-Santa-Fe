@@ -58,12 +58,32 @@ async function withRetry(queryFn, retries = 3, delayMs = 600) {
     }
 }
 
-export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Date().toISOString().slice(0, 4), 10)) {
+let globalCachedBaseData = null;
+let globalCachedMinAnio = null;
+let globalCachedMaxAnio = null;
+
+export function invalidateDataCache() {
+    globalCachedBaseData = null;
+    globalCachedMinAnio = null;
+    globalCachedMaxAnio = null;
+}
+
+export async function fetchAllBaseData(fromAnio = 2023, toAnio = parseInt(new Date().toISOString().slice(0, 4), 10), forceRefresh = false) {
+    if (forceRefresh) {
+        invalidateDataCache();
+    }
+    if (globalCachedBaseData && globalCachedMinAnio <= fromAnio && globalCachedMaxAnio >= toAnio) {
+        return globalCachedBaseData;
+    }
     const query = gMes('gold_vw_di_multidimensional_saneado', '*', fromAnio, toAnio);
     const data = await withRetry(query);
-    return {
+    const result = {
         multidimensional: data
     };
+    globalCachedBaseData = result;
+    globalCachedMinAnio = fromAnio;
+    globalCachedMaxAnio = toAnio;
+    return result;
 }
 
 export async function fetchPracticaDetail(codigoPractica, fromAnio = null, toAnio = null) {

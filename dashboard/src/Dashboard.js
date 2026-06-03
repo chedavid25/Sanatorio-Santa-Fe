@@ -1,6 +1,6 @@
 import { supabase } from './lib/supabase'
 import { DEPARTAMENTOS } from './config'
-import { fetchAllBaseData, fetchPracticaDetail, fetchSedeDetail, fetchServicioDetail, computeViewData, MODULO_LABELS, MODULOS } from './lib/data'
+import { fetchAllBaseData, invalidateDataCache, fetchPracticaDetail, fetchSedeDetail, fetchServicioDetail, computeViewData, MODULO_LABELS, MODULOS } from './lib/data'
 import { getFilters, toggleFilter, removeFilter, clearFilters, onFilterChange, getUser, hasPermission } from './lib/state'
 import { renderKPICards } from './components/KPICards'
 import { renderMainChart } from './components/MainChart'

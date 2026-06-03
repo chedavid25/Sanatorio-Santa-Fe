@@ -8,6 +8,7 @@ import { renderLogin } from './Login'
 import { renderRecoverPassword } from './RecoverPassword'
 import { renderDashboard } from './Dashboard'
 import { renderAdmin } from './Admin'
+import { invalidateDataCache } from './lib/data'
 
 const app = document.querySelector('#app')
 
@@ -75,6 +76,10 @@ async function handleRoute(session) {
 
         // Evitar renderizar si ya estamos en la vista correcta para el mismo usuario
         if (currentView !== targetView || currentSessionUserId !== session.user.id) {
+            // Si volvemos al dashboard desde la administración, invalidamos la caché en memoria para ver datos actualizados
+            if (targetView === 'dashboard' && currentView === 'admin') {
+                invalidateDataCache();
+            }
             currentSessionUserId = session.user.id
             currentView = targetView
             currentAdminSection = targetSection
