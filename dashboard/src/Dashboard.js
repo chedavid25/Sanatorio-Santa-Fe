@@ -330,6 +330,7 @@ export function renderDashboard(container, session) {
         intermediaria: 'Intermediaria',
         sede: 'Sede',
         derivante: 'Médico',
+        servicioDerivante: 'Servicio Médico',
     };
 
     function updateFilterBadges(filters) {
@@ -379,22 +380,16 @@ export function renderDashboard(container, session) {
         renderPracticasChart('practicas-chart', viewData.practicas, filters);
         renderDerivantesChart('derivantes-chart', viewData.derivantes, filters);
         renderDistributionCharts(viewData.os, viewData.int, viewData.sede, viewData.area, filters);
-        renderServicioDerivante(viewData.servicioDerivante, (servicio, idx) => handleServicioFilter(servicio, viewData.servicioDerivante.variantes[idx]));
-    }
+        renderServicioDerivante(viewData.servicioDerivante, filters, (servicio) => toggleFilter('servicioDerivante', servicio, servicio));
 
-    async function handleServicioFilter(servicio, variantes) {
-        if (!servicio) return;
-        try {
-            const detail = await fetchServicioDetail(variantes || servicio);
-            renderDerivantesChart('derivantes-chart', {
-                labels: detail.derivantes.map(r => r.nombre_solicitante),
-                data: detail.derivantes.map(r => r.total_derivaciones),
-            }, getFilters());
-            // Actualizar encabezado del card de derivantes
-            const cardTitle = document.querySelector('#derivantes-chart')?.closest('.card')?.querySelector('.card-title');
-            if (cardTitle) cardTitle.textContent = `Médicos Derivantes — ${servicio}`;
-        } catch (err) {
-            console.error('Error al cargar detalle de servicio', err);
+        // Actualizar título del card de derivantes en base a si está filtrado por servicio o no
+        const cardTitle = document.querySelector('#derivantes-chart')?.closest('.card')?.querySelector('.card-title');
+        if (cardTitle) {
+            if (filters.servicioDerivante) {
+                cardTitle.textContent = `Médicos Derivantes — ${filters.servicioDerivante.valor}`;
+            } else {
+                cardTitle.textContent = `Top Médicos Derivantes`;
+            }
         }
     }
 

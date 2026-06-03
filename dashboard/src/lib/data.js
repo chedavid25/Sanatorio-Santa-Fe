@@ -213,6 +213,11 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
             if (row.nombre_solicitante !== filters.derivante.valor) return false;
         }
 
+        // Filtro de Servicio Médico Derivante
+        if (excludeFilterKey !== 'servicioDerivante' && filters.servicioDerivante) {
+            if (row.servicio_unificado !== filters.servicioDerivante.valor) return false;
+        }
+
         return true;
     };
 
@@ -244,6 +249,9 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
         }
         if (excludeFilterKey !== 'derivante' && filters.derivante) {
             if (row.nombre_solicitante !== filters.derivante.valor) return false;
+        }
+        if (excludeFilterKey !== 'servicioDerivante' && filters.servicioDerivante) {
+            if (row.servicio_unificado !== filters.servicioDerivante.valor) return false;
         }
 
         return true;

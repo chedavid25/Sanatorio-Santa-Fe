@@ -584,7 +584,7 @@ function renderAreaChart(area, filters) {
     }
 }
 
-export function renderServicioDerivante(serv, onClickServicio) {
+export function renderServicioDerivante(serv, filters, onClickServicio) {
     const container = document.getElementById('serv-distribution-chart');
     if (!container) return;
 
@@ -595,6 +595,8 @@ export function renderServicioDerivante(serv, onClickServicio) {
         return;
     }
 
+    const activeServ = filters?.servicioDerivante ? filters.servicioDerivante.valor : null;
+    const colors = serv.labels.map(label => label === activeServ ? '#004884' : '#2a8ed2');
     const maxVal = Math.max(...serv.data);
 
     const options = {
@@ -620,7 +622,7 @@ export function renderServicioDerivante(serv, onClickServicio) {
                 dataLabels: { position: 'top' },
             },
         },
-        colors: BLUES.slice(0, serv.labels.length),
+        colors,
         dataLabels: {
             enabled: true,
             textAnchor: 'start',
@@ -659,7 +661,7 @@ export function renderServicioDerivante(serv, onClickServicio) {
                 const val = series[seriesIndex][dataPointIndex];
                 return `<div class="apexcharts-tooltip-title" style="font-size:12px">${label}</div>
                         <div class="px-2 py-1"><b>${val.toLocaleString()}</b> estudios<br>
-                        <small class="text-muted">Clic para ver los médicos de este servicio</small></div>`;
+                        <small class="text-muted">Clic para alternar filtro de servicio</small></div>`;
             },
         },
     };

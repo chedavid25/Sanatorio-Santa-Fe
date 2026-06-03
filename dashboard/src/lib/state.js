@@ -6,6 +6,7 @@ let _state = {
     intermediaria: null,  // { valor: nombre }
     sede: null,           // { valor: nombre }
     derivante: null,      // { valor: nombre }
+    servicioDerivante: null, // { valor: nombre }
 };
 let _user = null; // Almacenará el perfil { email, rol, modulos_permitidos, activo, nombre }
 
@@ -51,6 +52,7 @@ export function clearFilters() {
         intermediaria: null,
         sede: null,
         derivante: null,
+        servicioDerivante: null,
     };
     _listeners.forEach(fn => fn({ ..._state }));
 }
