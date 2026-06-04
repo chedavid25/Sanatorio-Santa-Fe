@@ -26,7 +26,7 @@ export function renderDashboard(container, session) {
                 <div class="d-flex align-items-center">
                     <div class="navbar-brand-box">
                         <a href="/" class="logo logo-dark">
-                            <span class="logo-sm"><span class="logo-txt">SF</span></span>
+                            <span class="logo-sm"><span class="logo-txt">SSF</span></span>
                             <span class="logo-lg">
                                 <div class="logo-sidebar-text">
                                     <span class="line-1">SANATORIO</span>
@@ -35,7 +35,7 @@ export function renderDashboard(container, session) {
                             </span>
                         </a>
                         <a href="/" class="logo logo-light">
-                            <span class="logo-sm"><span class="logo-txt">SF</span></span>
+                            <span class="logo-sm"><span class="logo-txt">SSF</span></span>
                             <span class="logo-lg">
                                 <div class="logo-sidebar-text">
                                     <span class="line-1">SANATORIO</span>
@@ -122,20 +122,23 @@ export function renderDashboard(container, session) {
                             </a>
                         </li>
                         <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Unidades</li>
-                        ${DEPARTAMENTOS.map(dept => `
+                        ${DEPARTAMENTOS.map(dept => {
+                            const hasSub = dept.secciones && dept.secciones.length > 0;
+                            return `
                             <li class="${dept.activo ? '' : 'text-muted'}">
                                 <a href="${dept.activo ? '#' : 'javascript:void(0);'}"
-                                   class="waves-effect ${dept.activo ? '' : 'disabled'}">
+                                   class="waves-effect ${hasSub ? 'has-arrow' : ''} ${dept.activo ? '' : 'disabled'}">
                                     <i class="${dept.icono} custom-sidebar-icon"></i>
                                     <span>${dept.nombre}</span>
                                     ${!dept.activo ? '<span class="badge rounded-pill bg-dark-subtle text-white-50 float-end" style="font-size:0.6rem;">PROX.</span>' : ''}
                                 </a>
-                                ${dept.activo && dept.secciones?.length ? `
+                                ${hasSub ? `
                                 <ul class="sub-menu" aria-expanded="false">
-                                    ${dept.secciones.map(sec => `<li><a href="#" data-section="${sec.id}">${sec.nombre}</a></li>`).join('')}
+                                    ${dept.secciones.map(sec => `<li><a href="javascript:void(0);" class="text-white-50 disabled" style="cursor:not-allowed; padding-left: 1.5rem;">${sec.nombre}</a></li>`).join('')}
                                 </ul>` : ''}
                             </li>
-                        `).join('')}
+                            `;
+                        }).join('')}
                         ${(getUser()?.rol === 'admin' || hasPermission('Saneamiento')) ? `
                             <li class="menu-title" style="color:rgba(255,255,255,0.4) !important; text-transform:uppercase; letter-spacing:1px;">Administración</li>
                             <li>

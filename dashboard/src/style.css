@@ -113,10 +113,17 @@ body.vertical-collpsed .navbar-brand-box .logo-lg {
     display: block !important;
     line-height: 70px;
     text-align: center;
-    font-size: 1.4rem !important;
+    font-size: 1.15rem !important;
     font-weight: 900;
     color: #fff !important;
     text-transform: none !important;
+    width: 100%;
+    margin: 0 auto;
+}
+
+body.vertical-collpsed .navbar-brand-box {
+    text-align: center;
+    padding: 0 !important;
 }
 
 /* Fix para acentos y fuentes */

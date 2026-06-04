@@ -1,6 +1,7 @@
 import { toggleFilter } from '../lib/state'
 
 const BLUES = ['#004884', '#0058a3', '#0072bc', '#2a8ed2', '#56abe8', '#82c7ff', '#ade4ff', '#d9f1ff', '#eef8ff', '#f0f8ff'];
+const DONUT_COLORS = ['#004884', '#5dcaa5', '#ef9f27', '#7f77dd', '#e05c5c', '#009688', '#ff6b6b', '#4d96ff', '#9b5de5', '#f15bb5'];
 
 const COMP_STYLES = {
     colors: ['#004884', '#adb5bd'],
@@ -238,7 +239,7 @@ function renderIntChart(int, filters) {
                 }
             },
             labels: int.labels,
-            colors: BLUES.slice(0, int.labels.length),
+            colors: DONUT_COLORS.slice(0, int.labels.length),
             legend: {
                 position: 'bottom',
                 fontSize: '12px',
@@ -376,7 +377,7 @@ function renderSedeChart(sede, filters) {
                 }
             },
             labels: sede.labels,
-            colors: BLUES.slice(0, sede.labels.length),
+            colors: DONUT_COLORS.slice(0, sede.labels.length),
             legend: {
                 position: 'bottom',
                 fontSize: '12px',

@@ -5,7 +5,7 @@ export const MODULO_COLORS = ['#004884', '#0072bc', '#56abe8', '#2a8ed2'];
 export const MODULO_LABELS = {
     Video:      'Videoendoscopia Digestiva',
     Tomo:       'Tomografia Computada',
-    Resonancia: 'Resonancia Magnetica Nuclear',
+    Resonancia: 'Resonancia Magnetica',
     Eco:        'Ecografias y Eco Doppler',
 };
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];

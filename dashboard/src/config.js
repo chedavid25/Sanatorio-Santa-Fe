@@ -1,6 +1,25 @@
 
 export const DEPARTAMENTOS = [
     {
+        id: 'sanatorio_sf',
+        nombre: 'Sanatorio Santa Fe',
+        icono: 'bx bx-building-house',
+        activo: false,
+        secciones: [
+            { id: 'adultos', nombre: 'Adultos' },
+            { id: 'ninos', nombre: 'Niños' }
+        ],
+        vistas: {}
+    },
+    {
+        id: 'sedes_atencion',
+        nombre: 'Sedes de Atención ambulatoria',
+        icono: 'bx bx-map',
+        activo: false,
+        secciones: [],
+        vistas: {}
+    },
+    {
         id: 'diagnostico_imagenes',
         nombre: 'Diagnóstico por Imágenes',
         icono: 'bx bx-scan',
@@ -30,16 +49,8 @@ export const DEPARTAMENTOS = [
     },
     {
         id: 'laboratorio',
-        nombre: 'Laboratorio',
+        nombre: 'Laboratorio de análisis clínicos',
         icono: 'bx bx-test-tube',
-        activo: false,
-        secciones: [],
-        vistas: {}
-    },
-    {
-        id: 'medicina_nuclear',
-        nombre: 'Medicina Laboral',
-        icono: 'bx bx-atom',
         activo: false,
         secciones: [],
         vistas: {}
@@ -48,6 +59,14 @@ export const DEPARTAMENTOS = [
         id: 'plan_salud',
         nombre: 'Plan de Salud',
         icono: 'bx bx-plus-medical',
+        activo: false,
+        secciones: [],
+        vistas: {}
+    },
+    {
+        id: 'medicina_laboral',
+        nombre: 'Medicina Laboral',
+        icono: 'bx bx-briefcase',
         activo: false,
         secciones: [],
         vistas: {}
