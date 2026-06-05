@@ -222,15 +222,16 @@ export function renderDerivantesChart(containerId, derivantes, filters) {
             yaxis: {
                 labels: {
                     style: { colors: '#555', fontSize: '11px', fontFamily: 'Outfit, sans-serif' },
-                    maxWidth: 180,
-                    formatter: val => typeof val === 'string' && val.length > 26 ? val.slice(0, 26) + '...' : val,
+                    minWidth: 200,
+                    maxWidth: 320,
+                    formatter: val => typeof val === 'string' ? val.replace(/\s*\.+\s*$/, '').trim() : val,
                 },
             },
             grid: {
                 borderColor: '#eff2f7',
                 xaxis: { lines: { show: false } },
                 yaxis: { lines: { show: false } },
-                padding: { left: 15, right: 15 },
+                padding: { left: 10, right: 15 },
             },
             legend: {
                 show: true,
@@ -293,20 +294,16 @@ export function renderDerivantesChart(containerId, derivantes, filters) {
             yaxis: {
                 labels: {
                     style: { colors: '#555', fontSize: '11px', fontFamily: 'Outfit, sans-serif' },
-                    maxWidth: 180,
-                    formatter: val => {
-                        if (typeof val === 'string' && val.length > 26) {
-                            return val.slice(0, 26) + '...';
-                        }
-                        return val;
-                    }
+                    minWidth: 200,
+                    maxWidth: 320,
+                    formatter: val => typeof val === 'string' ? val.replace(/\s*\.+\s*$/, '').trim() : val,
                 },
             },
             grid: {
                 borderColor: '#eff2f7',
                 xaxis: { lines: { show: true } },
                 yaxis: { lines: { show: false } },
-                padding: { left: 15, right: 15 },
+                padding: { left: 10, right: 15 },
             },
             legend: { show: false },
             tooltip: {

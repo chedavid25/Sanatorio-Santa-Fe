@@ -249,4 +249,66 @@ body {
     color: #94a3b8 !important; /* Gris claro para el texto muted en fondo oscuro */
 }
 
+/* ==========================================================================
+   Fix para el posicionamiento del Footer al colapsar el menú lateral
+   ========================================================================== */
+.main-content {
+    min-height: 100vh;
+    position: relative;
+    padding-bottom: 70px; /* Reserva espacio para el footer */
+    display: flex;
+    flex-direction: column;
+}
+
+.page-content {
+    flex: 1 0 auto;
+}
+
+.footer {
+    position: absolute;
+    bottom: 0;
+    left: 250px;
+    right: 0;
+    height: 60px;
+    padding: 20px 15px;
+    background-color: #f2f2f7;
+    border-top: 1px solid #eff2f7;
+    transition: all 0.15s ease-in-out;
+    z-index: 99;
+}
+
+/* Ajustes cuando el menú vertical está colapsado (desktop) */
+body.vertical-collpsed .footer,
+body[data-sidebar-size="sm"] .footer {
+    left: 70px !important;
+}
+
+/* En resoluciones móviles, el menú lateral se oculta */
+@media (max-width: 991.98px) {
+    .footer {
+        left: 0 !important;
+    }
+}
+
+/* ==========================================================================
+   Fix para asegurar alto completo del Sidebar (menú lateral)
+   ========================================================================== */
+.vertical-menu,
+body.vertical-collpsed .vertical-menu,
+body[data-sidebar-size="sm"] .vertical-menu {
+    position: fixed !important;
+    top: 70px !important; /* Mantiene la cabecera libre */
+    bottom: 0 !important;
+    height: calc(100vh - 70px) !important; /* Alto completo bajo la cabecera */
+    background: var(--ssf-bg-sidebar) !important;
+}
+
+.vertical-menu [data-simplebar],
+body.vertical-collpsed .vertical-menu [data-simplebar] {
+    height: 100% !important;
+}
+
+
+
+
 
