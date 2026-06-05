@@ -364,7 +364,7 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
     });
 
     // ── OS distribution ───────────────────────────────────────
-    const osRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'os'));
+    const osRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
     const osMap = {};
     osRows.forEach(r => {
         if (r.nombre_os) osMap[r.nombre_os] = (osMap[r.nombre_os] || 0) + r.cantidad;
@@ -373,14 +373,14 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     let osCompMap = {};
     if (compararActivo) {
-        const osRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'os'));
+        const osRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r));
         osRowsComp.forEach(r => {
             if (r.nombre_os) osCompMap[r.nombre_os] = (osCompMap[r.nombre_os] || 0) + r.cantidad;
         });
     }
 
     // ── INT distribution ──────────────────────────────────────────
-    const intRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'intermediaria'));
+    const intRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
     const intMap = {};
     intRows.forEach(r => {
         if (r.intermediaria_limpia) intMap[r.intermediaria_limpia] = (intMap[r.intermediaria_limpia] || 0) + r.cantidad;
@@ -389,14 +389,14 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     const intCompMap = {};
     if (compararActivo) {
-        const intRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'intermediaria'));
+        const intRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r));
         intRowsComp.forEach(r => {
             if (r.intermediaria_limpia) intCompMap[r.intermediaria_limpia] = (intCompMap[r.intermediaria_limpia] || 0) + r.cantidad;
         });
     }
 
     // ── Sede distribution ──────────────────────────────────────────
-    const sedeRows = baseData.multidimensional.filter(r => matchesCommonFilters(r, 'sede'));
+    const sedeRows = baseData.multidimensional.filter(r => matchesCommonFilters(r));
     const sedeMap = {};
     sedeRows.forEach(r => {
         if (r.sede) sedeMap[r.sede] = (sedeMap[r.sede] || 0) + r.cantidad;
@@ -405,7 +405,7 @@ export function computeViewData(baseData, filters, dateFrom, dateTo, compararAct
 
     const sedeCompMap = {};
     if (compararActivo) {
-        const sedeRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r, 'sede'));
+        const sedeRowsComp = baseData.multidimensional.filter(r => matchesCommonFiltersComp(r));
         sedeRowsComp.forEach(r => {
             if (r.sede) sedeCompMap[r.sede] = (sedeCompMap[r.sede] || 0) + r.cantidad;
         });
