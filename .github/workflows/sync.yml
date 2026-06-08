@@ -25,6 +25,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install requests python-dotenv supabase psycopg2-binary
 
+    - name: Configurar hosts para evitar fallos de DNS
+      run: |
+        echo "181.13.88.182 identityout.gruposantafe.com.ar" | sudo tee -a /etc/hosts
+        echo "181.13.88.182 apiestadisticas.gruposantafe.com.ar" | sudo tee -a /etc/hosts
+
     - name: Ejecutar script de sincronización
       env:
         API_BASE_URL: ${{ secrets.API_BASE_URL }}
@@ -34,3 +39,4 @@ jobs:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       run: python sync_data.py
+
