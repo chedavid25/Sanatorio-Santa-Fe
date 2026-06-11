@@ -57,7 +57,7 @@ def fetch_data(token, endpoint, fecha_desde, fecha_hasta):
 
 
 def fetch_detalle(token, api_module, serv_id, ubic_id, fecha_desde, fecha_hasta):
-    url = f"{API_BASE_URL.rstrip('/')}/api/{api_module}/detalle"
+    url = f"{API_BASE_URL.rstrip('/')}/api/Servicios/detalle"
     response = requests.get(
         url,
         headers={"Authorization": f"Bearer {token}"},
