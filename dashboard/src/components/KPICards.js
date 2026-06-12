@@ -10,6 +10,11 @@ const MODULO_ICONS = {
     Tomo: 'bx bx-scan',
     Resonancia: 'bx bxs-magnet',
     Eco: 'bx bx-pulse',
+    Nuclear: 'bx bx-atom',
+    Densi: 'bx bx-bone',
+    Odonto: 'bx bxs-smile',
+    Radio: 'bx bx-images',
+    Angio: 'bx bx-heart',
 };
 
 /** Render a compact variation badge inline under the KPI number.

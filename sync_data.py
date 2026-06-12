@@ -29,6 +29,18 @@ DETALLE_COMBINATIONS = [
     ("Eco",        "Eco",        262, 7),   # ECO STO TOME
     ("Eco",        "Eco",        359, 14),  # ECO GRAL PAZ
     ("Eco",        "Eco",        367, 22),  # ECO CEMI
+    ("Eco",        "Eco",        209, 3),   # ECODOPPLER CARDIACO - Sanatorio SF
+    ("Eco",        "Eco",        281, 7),   # ECODOPPLER CARDIACO - STO TOME
+    ("Eco",        "Eco",        360, 14),  # ECODOPPLER CARDIACO - GRAL PAZ
+    ("Nuclear",    "Nuclear",    164, 3),   # MEDICINA NUCLEAR - Sanatorio SF
+    ("Densi",      "Densi",      228, 3),   # DENSITOMETRIA OSEA - Sanatorio SF
+    ("Odonto",     "Odonto",     386, 3),   # IMAGENES ODONTOLOGICAS - Sanatorio SF
+    ("Radio",      "Radio",      127, 3),   # RADIOLOGIA DIGITAL - Sanatorio SF
+    ("Radio",      "Radio",      222, 3),   # RADIOLOGIA DIGITAL URGENCIA - Sanatorio SF
+    ("Radio",      "Radio",      256, 11),  # RADIOLOGIA SAN LUIS
+    ("Radio",      "Radio",      230, 8),   # RX CLINICA ESPERANZA
+    ("Radio",      "Radio",      355, 7),   # RX CLINICA SANTO TOME
+    ("Angio",      "Angio",      135, 3),   # ANGIOGRAFIA - Sanatorio SF
 ]
 
 
